@@ -1211,19 +1211,34 @@ document.getElementById('btn-save-settings').addEventListener('click', () => {
 const SERVICE_UUID = 'd3b85480-7d79-464c-a646-0002a5d5c51b';
 const CHAR_WRITE_UUID = 'd3b85481-7d79-464c-a646-0002a5d5c51b';
 const CHAR_NOTIFY_UUID = 'd3b85484-7d79-464c-a646-0002a5d5c51b';
+// Diagnóstico: a bike expõe um SEGUNDO canal de notificação (5483) que o app não assinava ainda.
+const CHAR_NOTIFY2_UUID = 'd3b85483-7d79-464c-a646-0002a5d5c51b';
 
 let bleDevice = null;
 let charWrite = null;
 let charNotify = null;
+let charNotify2 = null; // segundo canal de notificação (diagnóstico — mudança 2)
+let canaisEscuta = []; // características com notificação ativada nesta conexão (diagnóstico — mudança 2)
+let ultimoCanalRx = '----'; // sufixo do canal de onde chegou o último pedaço de notificação
+let terminadorQueFunciona = ''; // preenchido pela sondagem de +VER? (mudança 4); send() acrescenta isto em todo comando
 let caiuDurante = false; // true quando a conexão GATT cai (gattserverdisconnected) no meio da preparação
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+// Sufixo curto de um UUID de característica (ex.: "d3b85483-..." -> "5483"), só para não poluir o log.
+function sufixoCanal(uuid) {
+  const limpo = (uuid || '').toLowerCase();
+  return limpo.slice(4, 8) || limpo;
+}
+
 // Envia um comando de texto pela característica de escrita, com cascata de
 // fallbacks para funcionar em implementações antigas (ex: Bluefy mais velho).
+// Acrescenta o terminador de linha descoberto na sondagem (mudança 4) — começa
+// vazio, então antes da sondagem terminar isto não muda nada.
 async function send(cmd) {
-  log('tx', cmd);
-  const data = new TextEncoder().encode(cmd);
+  const cmdFinal = cmd + terminadorQueFunciona;
+  log('tx', cmdFinal);
+  const data = new TextEncoder().encode(cmdFinal);
   try {
     await charWrite.writeValueWithResponse(data);
   } catch (e) {
@@ -1243,6 +1258,7 @@ let pendingWaiter = null; // { predicate, resolve, reject, label }
 function onNotify(event) {
   const value = event.target.value;
   const text = new TextDecoder('utf-8').decode(value);
+  ultimoCanalRx = sufixoCanal(event.target.uuid); // qual dos canais de escuta mandou este pedaço
   rxBuffer += text;
   processBuffer();
   resetFlushTimer();
@@ -1284,7 +1300,7 @@ function safePredicate(fn, linha) {
 
 // Processa uma linha completa recebida da bike.
 function emitLine(linha) {
-  log('rx', linha);
+  log('rx', `[${ultimoCanalRx}] ${linha}`);
   atualizarEstadoPelaLinha(linha);
   if (pendingWaiter && safePredicate(pendingWaiter.predicate, linha)) {
     const w = pendingWaiter;
@@ -1372,7 +1388,12 @@ function setAppState(novoEstado, mensagem) {
   telaPronto.classList.toggle('hidden', novoEstado !== 'ready');
 
   if (novoEstado === 'error') {
-    msgErro.textContent = mensagem || 'Ocorreu um erro desconhecido.';
+    const textoErro = mensagem || 'Ocorreu um erro desconhecido.';
+    msgErro.textContent = textoErro;
+    // Conserto de diagnóstico: antes, um erro que só aparecia na tela podia nunca
+    // ir para o Console/captura. Duplicar (quando o chamador já logou antes) é
+    // aceitável — perder o erro do log não é.
+    log('erro', textoErro);
   }
   if (novoEstado === 'disconnected') {
     btnConnect.textContent = bleDevice ? 'Reconectar' : 'Conectar';
@@ -1497,10 +1518,12 @@ async function conectar() {
         const uuidMinusculo = c.uuid.toLowerCase();
         if (uuidMinusculo === CHAR_WRITE_UUID.toLowerCase()) charWrite = c;
         if (uuidMinusculo === CHAR_NOTIFY_UUID.toLowerCase()) charNotify = c;
+        if (uuidMinusculo === CHAR_NOTIFY2_UUID.toLowerCase()) charNotify2 = c;
       }
 
       if (charWrite) log('info', 'Canal de escrita encontrado.');
       if (charNotify) log('info', 'Canal de escuta encontrado.');
+      if (charNotify2) log('info', 'Segundo canal de escuta encontrado (diagnóstico).');
 
       if (!charWrite || !charNotify) {
         const faltando = [];
@@ -1511,8 +1534,51 @@ async function conectar() {
         throw erroCanais;
       }
 
+      // Diagnóstico (mudança 2): assina os DOIS canais de notificação conhecidos
+      // (5484 já era assinado; 5483 é novo). Cada um tem seu próprio try/catch —
+      // se um falhar, registra e segue com o outro, sem abortar a conexão.
       log('info', 'Ativando notificações...');
-      await comLimite(charNotify.startNotifications(), 10000, 'ativar notificações');
+      canaisEscuta = [];
+      const candidatosNotify = [charNotify, charNotify2].filter(Boolean);
+      for (const c of candidatosNotify) {
+        const suf = sufixoCanal(c.uuid);
+        try {
+          await comLimite(c.startNotifications(), 10000, 'ativar notificações [' + suf + ']');
+          c.addEventListener('characteristicvaluechanged', onNotify);
+          canaisEscuta.push(c);
+          log('info', 'Notificações ativadas no canal [' + suf + '].');
+        } catch (eNotify) {
+          log('erro', 'Falha ao ativar notificações no canal [' + suf + ']: ' + (eNotify.message || eNotify));
+        }
+      }
+      if (!canaisEscuta.length) {
+        throw new Error('Não foi possível ativar notificações em nenhum canal (nem 5483 nem 5484).');
+      }
+
+      // Diagnóstico (mudança 3): varredura de LEITURA em todo canal legível, só
+      // para ver o que a bike já tem guardado. Isto é LEITURA — não altera nada
+      // na bike — e nunca aborta a conexão se uma leitura falhar.
+      log('info', 'Lendo o conteúdo atual dos canais (só leitura, não altera nada)...');
+      const canaisLegiveis = todosOsCanais.filter(c => c.properties && c.properties.read);
+      for (const c of canaisLegiveis) {
+        const suf = sufixoCanal(c.uuid);
+        try {
+          const valor = await comLimite(c.readValue(), 5000, 'ler canal ' + suf);
+          const bytes = new Uint8Array(valor.buffer, valor.byteOffset, valor.byteLength);
+          const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join(' ');
+          const bruto = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+          let texto = '';
+          for (const ch of bruto) {
+            const code = ch.codePointAt(0);
+            texto += (code < 0x20 || code === 0x7f) ? '.' : ch;
+          }
+          log('info', `LEITURA [${suf}] hex: ${hex}`);
+          log('info', `LEITURA [${suf}] texto: ${texto}`);
+        } catch (eLer) {
+          log('erro', `LEITURA [${suf}] falhou: ${eLer.message || eLer}`);
+        }
+        await sleep(120);
+      }
     } catch (e) {
       if (caiuDurante || !(bleDevice.gatt && bleDevice.gatt.connected)) {
         throw new Error('A bike não atendeu — quase sempre o app oficial da iNow está segurando a conexão em segundo plano. Fechar ele arrastando para cima NÃO basta: apps de Bluetooth reconectam sozinhos. Faça assim: 1) Ajustes do iPhone → iNow → DESLIGUE a permissão de Bluetooth; 2) Ajustes → Bluetooth → desligue, espere 10s e ligue (pela Central de Controle não vale); 3) toque em Tentar novamente. Para voltar a usar o app oficial, é só religar a permissão.');
@@ -1524,8 +1590,7 @@ async function conectar() {
       throw new Error('Esse aparelho não é a sua bike (não tem o serviço esperado). Toque em Conectar e escolha outro da lista.');
     }
 
-    charNotify.addEventListener('characteristicvaluechanged', onNotify);
-    log('info', 'Notificações ativadas. Iniciando handshake...');
+    log('info', 'Notificações ativadas em ' + canaisEscuta.length + ' canal(is). Iniciando handshake...');
 
     await runHandshake();
   } catch (e) {
@@ -1540,6 +1605,8 @@ function onGattDisconnected() {
   liberarWakeLock();
   charWrite = null;
   charNotify = null;
+  charNotify2 = null;
+  canaisEscuta = [];
   if (pendingWaiter) { pendingWaiter.reject(new Error('Conexão perdida.')); pendingWaiter = null; }
   // Zera o estado guardado para a tela não mostrar valores da sessão anterior
   // quando reconectar (estado foi declarado com "let", então pode ser reatribuído aqui).
@@ -1569,6 +1636,8 @@ function esquecerDispositivo(motivo) {
   bleDevice = null;
   charWrite = null;
   charNotify = null;
+  charNotify2 = null;
+  canaisEscuta = [];
   rxBuffer = '';
   estado = { lock: null, luma: null, drivmd: null, crze: null, gearmode: null };
   renderLock();
@@ -1586,9 +1655,36 @@ function esquecerDispositivo(motivo) {
 async function runHandshake() {
   setAppState('authenticating');
 
-  // 1) Pergunta a versão do firmware — só para "acordar" a conversa.
-  await send('+VER?');
-  await expect(l => l.startsWith('+VER='), 'VER (versão do firmware)');
+  // 1) Diagnóstico (mudança 4): a bike não respondeu ao +VER? no hardware de
+  // teste. Hipótese: o protocolo é orientado a linhas e espera um terminador
+  // que hoje não mandamos. Sonda o MESMO comando +VER? com três terminadores.
+  // Envia o terminador explícito em cada tentativa (não depende de
+  // terminadorQueFunciona, que só é preenchida depois que uma delas funcionar).
+  const tentativasTerminador = [
+    { terminador: '', rotulo: 'nenhum' },
+    { terminador: '\r\n', rotulo: 'CRLF' },
+    { terminador: '\n', rotulo: 'LF' },
+  ];
+  let verRespondeu = false;
+  for (const tentativa of tentativasTerminador) {
+    log('info', 'Testando +VER? com terminador: ' + tentativa.rotulo);
+    await send('+VER?' + tentativa.terminador);
+    try {
+      await expect(l => l.startsWith('+VER='), 'VER (terminador ' + tentativa.rotulo + ')', 3000);
+      log('info', 'A bike respondeu com o terminador: ' + tentativa.rotulo);
+      terminadorQueFunciona = tentativa.terminador;
+      verRespondeu = true;
+      break;
+    } catch (eSonda) {
+      // não respondeu com este terminador — tenta o próximo
+    }
+    await sleep(150);
+  }
+  if (!verRespondeu) {
+    const msgSemResposta = 'A bike não respondeu ao +VER? em nenhum dos três formatos. Copie o Console e mande para análise.';
+    log('erro', msgSemResposta);
+    throw new Error(msgSemResposta);
+  }
   await sleep(150);
 
   // 2) Pede um desafio (nonce) para a bike.

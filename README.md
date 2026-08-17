@@ -364,3 +364,23 @@ confirmar o UUID correto).
 
 **O que fazer:** abra o **Console** (na tela principal, embaixo), toque em
 **Copiar** e mande esse log para análise — a lista de canais reais está ali.
+
+---
+
+## 15. Conecta, manda o comando e a bike não responde
+
+Se a conexão abre, os canais aparecem certinho, mas depois de mandar `+VER?` a
+bike fica muda (e alguns segundos depois desconecta sozinha), o app agora faz
+três coisas a mais para ajudar a descobrir o motivo, sem arriscar nada na bike:
+
+1. **Escuta os dois canais de notificação** que a bike oferece (não só um) —
+   pode ser que a resposta esteja saindo pelo canal que o app não assinava.
+2. **Lê o conteúdo atual de todos os canais que permitem leitura** (isso é só
+   leitura, não muda nada na bike) e mostra em hexadecimal e como texto.
+3. **Testa o comando `+VER?` com três terminadores de linha diferentes** (sem
+   nada, com `\r\n` e com `\n`), porque a bike pode esperar um terminador que o
+   app não estava mandando.
+
+Tudo isso aparece no **Console**, incluindo qual terminador (se algum)
+funcionou. **O que fazer:** abra o Console, toque em **Copiar** e mande esse
+log para análise.
