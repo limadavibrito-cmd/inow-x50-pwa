@@ -1884,7 +1884,11 @@ btnForgetError.addEventListener('click', () => esquecerDispositivo());
    PARTE I — SERVICE WORKER (PWA)
    ===================================================================== */
 
-if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+if (!('serviceWorker' in navigator)) {
+  log('info', 'Este navegador não tem suporte a service worker, então o cache offline não vai funcionar (o Bluefy é assim). Isso NÃO afeta o Bluetooth — o app funciona normalmente. Dica: não feche o Bluefy à força depois de usar, assim o app reabre sem precisar de internet.');
+} else if (!(location.protocol === 'https:' || location.hostname === 'localhost')) {
+  log('erro', 'Esta página não está em HTTPS. O cache offline não vai funcionar E o Bluetooth também não — abra o endereço começando com https://');
+} else {
   try {
     navigator.serviceWorker.register('./sw.js').then(() => {
       log('info', 'Service worker registrado.');
@@ -1894,8 +1898,6 @@ if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.
   } catch (e) {
     log('info', 'Service worker não registrou: ' + e.message);
   }
-} else {
-  log('info', 'Service worker não registrado (fora de HTTPS/localhost) — o app funciona normalmente, só sem cache offline.');
 }
 
 /* =====================================================================

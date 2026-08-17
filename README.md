@@ -47,16 +47,29 @@ O Safari do iPhone **não tem** suporte a Web Bluetooth, então é preciso usar 
 navegador que tenha:
 
 1. Abra a **App Store** e instale o app **Bluefy** (navegador com suporte a Bluetooth).
-2. Abra o Bluefy e digite a URL https do passo anterior (a do GitHub Pages).
-3. Com o app aberto, toque no botão de **compartilhar** (o quadrado com a seta para
-   cima) e depois em **"Adicionar à Tela de Início"**. Assim o app fica com um ícone
-   próprio, como se fosse instalado de verdade.
+2. Abra o Bluefy e digite a URL https do passo anterior (a do GitHub Pages), por
+   exemplo `https://limadavibrito-cmd.github.io/inow-x50-pwa/`.
+3. **Não** tente usar "Adicionar à Tela de Início" — esse recurso é exclusivo do
+   Safari, e o ícone criado por ele abriria no Safari, que não tem Web Bluetooth
+   (o app apareceria mas não conseguiria conectar na bike).
+4. Em vez disso, para ter um acesso rápido:
+   - **Definir como página inicial do Bluefy** (melhor opção): toque no menu ☰
+     (geralmente no canto inferior direito) → **Settings** → procure o campo de
+     homepage/start page → cole o endereço do app. O nome exato do campo pode
+     variar conforme a versão do Bluefy. Assim, o próprio ícone do Bluefy na tela
+     do iPhone já abre direto no app.
+   - **Favoritar** o endereço pela estrela ☆ ao lado da barra de endereço, como
+     reserva.
+5. Observação honesta: no Bluefy o cache offline **não funciona** (esse navegador
+   não tem suporte a service worker). O app funciona normalmente mesmo assim, mas
+   para não depender de internet na garagem, é melhor deixar o Bluefy aberto em
+   segundo plano em vez de fechá-lo à força.
 
 ---
 
 ## 3. Primeiro uso
 
-1. Abra o app (pelo ícone que você criou, ou direto no Bluefy).
+1. Abra o app no Bluefy (direto, ou pela página inicial/favorito configurado).
 2. Toque na **engrenagem** (⚙️) no canto superior direito.
 3. Digite a **senha de pareamento de 6 dígitos** da sua bike.
 4. Toque em **"Salvar"**.
