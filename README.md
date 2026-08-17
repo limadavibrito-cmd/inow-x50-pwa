@@ -346,3 +346,21 @@ telemetria acima).
 
 Nesse caso o app não te obriga a escolher a bike na lista de novo — ele mantém
 o aparelho já escolhido e só pede para tentar uma vez mais.
+
+---
+
+## 14. Conecta, acha o serviço, mas falha nos canais
+
+Se o Console mostra que a conexão abriu e o serviço da bike foi encontrado, mas
+o app trava (ou dá erro) logo depois disso, o problema está nos **canais**
+(características) dentro do serviço — os UUIDs que o app espera podem não ser
+exatamente os que essa bike oferece.
+
+Para não ficar chutando, o app agora **lista no Console todos os canais que a
+bike realmente ofereceu**, com o UUID de cada um e o que ele permite (leitura,
+escrita, notificação etc.). Se os canais esperados não estiverem nessa lista,
+o app avisa e não esquece o aparelho escolhido (ele está certo — só falta
+confirmar o UUID correto).
+
+**O que fazer:** abra o **Console** (na tela principal, embaixo), toque em
+**Copiar** e mande esse log para análise — a lista de canais reais está ali.

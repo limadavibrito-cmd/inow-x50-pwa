@@ -1473,15 +1473,52 @@ async function conectar() {
       log('info', 'Conexão aberta. Procurando o serviço da bike...');
       const service = await comLimite(server.getPrimaryService(SERVICE_UUID), 10000, 'procurar o serviço da bike');
 
-      log('info', 'Serviço encontrado. Pegando as características...');
-      charWrite = await comLimite(service.getCharacteristic(CHAR_WRITE_UUID), 10000, 'pegar as características');
-      charNotify = await comLimite(service.getCharacteristic(CHAR_NOTIFY_UUID), 10000, 'pegar as características');
+      log('info', 'Serviço encontrado. Listando os canais (características) que a bike oferece...');
+      let todosOsCanais;
+      try {
+        todosOsCanais = await comLimite(service.getCharacteristics(), 20000, 'listar os canais do serviço');
+      } catch (eListar) {
+        const erroListagem = new Error('Falhou ao listar os canais do serviço: ' + (eListar.message || eListar));
+        erroListagem.naoEsquecerDispositivo = true; // já sabemos que o serviço existe — não é aparelho errado
+        throw erroListagem;
+      }
+
+      log('info', `A bike ofereceu ${todosOsCanais.length} canais:`);
+      if (!todosOsCanais.length) {
+        log('erro', 'A bike não ofereceu nenhum canal dentro do serviço.');
+      }
+      // Nomes de propriedades que o Web Bluetooth pode expor em c.properties.
+      const NOMES_PROPRIEDADES = ['read', 'write', 'writeWithoutResponse', 'notify', 'indicate', 'broadcast', 'authenticatedSignedWrites', 'reliableWrite', 'writableAuxiliaries'];
+      for (const c of todosOsCanais) {
+        const props = c.properties || {};
+        const propriedadesAtivas = NOMES_PROPRIEDADES.filter(p => props[p]);
+        log('info', `CANAL ${c.uuid} [${propriedadesAtivas.join(', ')}]`);
+        // Web Bluetooth sempre devolve o UUID em minúsculas; comparamos os nossos também em minúsculas.
+        const uuidMinusculo = c.uuid.toLowerCase();
+        if (uuidMinusculo === CHAR_WRITE_UUID.toLowerCase()) charWrite = c;
+        if (uuidMinusculo === CHAR_NOTIFY_UUID.toLowerCase()) charNotify = c;
+      }
+
+      if (charWrite) log('info', 'Canal de escrita encontrado.');
+      if (charNotify) log('info', 'Canal de escuta encontrado.');
+
+      if (!charWrite || !charNotify) {
+        const faltando = [];
+        if (!charWrite) faltando.push('canal de escrita');
+        if (!charNotify) faltando.push('canal de escuta');
+        const erroCanais = new Error('A bike conectou e o serviço foi encontrado, mas os canais esperados não estão lá. Os canais que ela realmente oferece foram listados no Console — toque em Copiar e mande para análise. (Faltou: ' + faltando.join(' e/ou ') + '.)');
+        erroCanais.naoEsquecerDispositivo = true; // o aparelho está certo — não faz sentido esquecê-lo
+        throw erroCanais;
+      }
 
       log('info', 'Ativando notificações...');
       await comLimite(charNotify.startNotifications(), 10000, 'ativar notificações');
     } catch (e) {
       if (caiuDurante || !(bleDevice.gatt && bleDevice.gatt.connected)) {
         throw new Error('A bike não atendeu — quase sempre o app oficial da iNow está segurando a conexão em segundo plano. Fechar ele arrastando para cima NÃO basta: apps de Bluetooth reconectam sozinhos. Faça assim: 1) Ajustes do iPhone → iNow → DESLIGUE a permissão de Bluetooth; 2) Ajustes → Bluetooth → desligue, espere 10s e ligue (pela Central de Controle não vale); 3) toque em Tentar novamente. Para voltar a usar o app oficial, é só religar a permissão.');
+      }
+      if (e && e.naoEsquecerDispositivo) {
+        throw e; // o serviço existe e o aparelho é o certo — não esquece, mensagem já é a certa
       }
       esquecerDispositivo();
       throw new Error('Esse aparelho não é a sua bike (não tem o serviço esperado). Toque em Conectar e escolha outro da lista.');
