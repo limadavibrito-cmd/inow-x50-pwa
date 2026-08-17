@@ -1222,6 +1222,7 @@ let canaisEscuta = []; // características com notificação ativada nesta conex
 let ultimoCanalRx = '----'; // sufixo do canal de onde chegou o último pedaço de notificação
 let terminadorQueFunciona = ''; // preenchido pela sondagem de +VER? (mudança 4); send() acrescenta isto em todo comando
 let caiuDurante = false; // true quando a conexão GATT cai (gattserverdisconnected) no meio da preparação
+let tsConexaoAberta = 0; // Date.now() de quando a conexão GATT abriu — usado para logar o orçamento de ~30s da bike
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -1241,21 +1242,40 @@ async function send(cmd) {
   if (!charWrite || !(bleDevice && bleDevice.gatt && bleDevice.gatt.connected)) {
     throw new Error('A conexão com a bike não está ativa — o comando não foi enviado. Toque em Conectar.');
   }
+  // Captura a característica numa constante local: se a conexão cair NO MEIO desta
+  // função (charWrite vira null via onGattDisconnected), a cascata de fallback abaixo
+  // continua usando o canal já capturado em vez de estourar "null is not an object".
+  const canal = charWrite;
   const cmdFinal = cmd + terminadorQueFunciona;
   // Mostra o terminador por extenso: se fosse escrito cru, ele quebraria a linha do log.
   const rotuloTerm = terminadorQueFunciona === '\r\n' ? ' <CRLF>'
                    : terminadorQueFunciona === '\n' ? ' <LF>' : '';
   log('tx', cmd + rotuloTerm);
   const data = new TextEncoder().encode(cmdFinal);
-  try {
-    await charWrite.writeValueWithResponse(data);
-  } catch (e) {
+  const inicio = Date.now();
+  let escrito = false;
+  if (typeof canal.writeValueWithResponse === 'function') {
     try {
-      await charWrite.writeValueWithoutResponse(data);
-    } catch (e2) {
-      await charWrite.writeValue(data);
-    }
+      await comLimite(canal.writeValueWithResponse(data), 4000, 'enviar ' + cmd);
+      escrito = true;
+    } catch (e) { /* cai para o próximo método */ }
   }
+  if (!escrito && typeof canal.writeValueWithoutResponse === 'function') {
+    try {
+      await comLimite(canal.writeValueWithoutResponse(data), 4000, 'enviar ' + cmd);
+      escrito = true;
+    } catch (e) { /* cai para o próximo método */ }
+  }
+  if (!escrito && typeof canal.writeValue === 'function') {
+    try {
+      await comLimite(canal.writeValue(data), 4000, 'enviar ' + cmd);
+      escrito = true;
+    } catch (e) { /* nenhum método restante — falha abaixo */ }
+  }
+  if (!escrito) {
+    throw new Error('A bike não aceitou o comando ' + cmd + ' — a conexão pode ter caído. Toque em Conectar de novo.');
+  }
+  log('info', 'Comando ' + cmd + ' aceito pelo Bluetooth em ' + (Date.now() - inicio) + 'ms.');
 }
 
 /* ---- Recepção com remontagem de fragmentos ---- */
@@ -1495,15 +1515,18 @@ async function conectar() {
     // Se a conexão cair no meio do caminho (ou der tempo esgotado por causa
     // disso), isso é "outro app segurando a bike" — não "aparelho errado" —
     // então não esquecemos o dispositivo escolhido.
+    let todosOsCanais = []; // declarado aqui (fora do try interno) para o handshake poder usar na varredura de leitura
     try {
       log('info', 'Abrindo conexão GATT...');
       const server = await comLimite(bleDevice.gatt.connect(), 15000, 'abrir conexão GATT');
+      // Marca o instante em que a conexão abriu: a bike derruba tudo ~30s depois
+      // disso se o handshake não concluir, então isto é o relógio do orçamento.
+      tsConexaoAberta = Date.now();
 
       log('info', 'Conexão aberta. Procurando o serviço da bike...');
       const service = await comLimite(server.getPrimaryService(SERVICE_UUID), 10000, 'procurar o serviço da bike');
 
       log('info', 'Serviço encontrado. Listando os canais (características) que a bike oferece...');
-      let todosOsCanais;
       try {
         todosOsCanais = await comLimite(service.getCharacteristics(), 20000, 'listar os canais do serviço');
       } catch (eListar) {
@@ -1563,30 +1586,9 @@ async function conectar() {
         throw new Error('Não foi possível ativar notificações em nenhum canal (nem 5483 nem 5484).');
       }
 
-      // Diagnóstico (mudança 3): varredura de LEITURA em todo canal legível, só
-      // para ver o que a bike já tem guardado. Isto é LEITURA — não altera nada
-      // na bike — e nunca aborta a conexão se uma leitura falhar.
-      log('info', 'Lendo o conteúdo atual dos canais (só leitura, não altera nada)...');
-      const canaisLegiveis = todosOsCanais.filter(c => c.properties && c.properties.read);
-      for (const c of canaisLegiveis) {
-        const suf = sufixoCanal(c.uuid);
-        try {
-          const valor = await comLimite(c.readValue(), 5000, 'ler canal ' + suf);
-          const bytes = new Uint8Array(valor.buffer, valor.byteOffset, valor.byteLength);
-          const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join(' ');
-          const bruto = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
-          let texto = '';
-          for (const ch of bruto) {
-            const code = ch.codePointAt(0);
-            texto += (code < 0x20 || code === 0x7f) ? '.' : ch;
-          }
-          log('info', `LEITURA [${suf}] hex: ${hex}`);
-          log('info', `LEITURA [${suf}] texto: ${texto}`);
-        } catch (eLer) {
-          log('erro', `LEITURA [${suf}] falhou: ${eLer.message || eLer}`);
-        }
-        await sleep(120);
-      }
+      // A varredura de leitura (diagnóstico) saiu daqui: agora ela roda dentro do
+      // handshake, DEPOIS da sondagem de terminadores — para não gastar no
+      // experimento menos importante o orçamento de ~30s que a bike concede.
     } catch (e) {
       if (caiuDurante || !(bleDevice.gatt && bleDevice.gatt.connected)) {
         throw new Error('A bike não atendeu — quase sempre o app oficial da iNow está segurando a conexão em segundo plano. Fechar ele arrastando para cima NÃO basta: apps de Bluetooth reconectam sozinhos. Faça assim: 1) Ajustes do iPhone → iNow → DESLIGUE a permissão de Bluetooth; 2) Ajustes → Bluetooth → desligue, espere 10s e ligue (pela Central de Controle não vale); 3) toque em Tentar novamente. Para voltar a usar o app oficial, é só religar a permissão.');
@@ -1600,7 +1602,7 @@ async function conectar() {
 
     log('info', 'Notificações ativadas em ' + canaisEscuta.length + ' canal(is). Iniciando handshake...');
 
-    await runHandshake();
+    await runHandshake(todosOsCanais);
   } catch (e) {
     console.error(e);
     setAppState('error', e.message || String(e));
@@ -1658,9 +1660,41 @@ function esquecerDispositivo(motivo) {
   setAppState('disconnected');
 }
 
+// Diagnóstico (mudança 3, reordenado): varredura de LEITURA em todo canal legível, só
+// para ver o que a bike já tem guardado. Isto é LEITURA — não altera nada na bike — e
+// nunca derruba a conexão se uma leitura falhar. Roda DEPOIS do handshake (sucesso ou
+// falha) para não gastar no experimento menos importante o orçamento de ~30s da bike.
+// Limites reduzidos (1500ms por leitura, 60ms de pausa) para caber em ~6s em vez de 15,4s.
+async function varreduraLeitura(todosOsCanais) {
+  const canaisLegiveis = (todosOsCanais || []).filter(c => c.properties && c.properties.read);
+  const decorridos = ((Date.now() - tsConexaoAberta) / 1000).toFixed(1);
+  log('info', `Varredura de leitura (${decorridos}s desde a conexão abrir).`);
+  for (const c of canaisLegiveis) {
+    const suf = sufixoCanal(c.uuid);
+    try {
+      const valor = await comLimite(c.readValue(), 1500, 'ler canal ' + suf);
+      const bytes = new Uint8Array(valor.buffer, valor.byteOffset, valor.byteLength);
+      const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join(' ');
+      const bruto = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+      let texto = '';
+      for (const ch of bruto) {
+        const code = ch.codePointAt(0);
+        texto += (code < 0x20 || code === 0x7f) ? '.' : ch;
+      }
+      log('info', `LEITURA [${suf}] hex: ${hex}`);
+      log('info', `LEITURA [${suf}] texto: ${texto}`);
+    } catch (eLer) {
+      log('erro', `LEITURA [${suf}] falhou: ${eLer.message || eLer}`);
+    }
+    await sleep(60);
+  }
+}
+
 // O handshake é dirigido pelas respostas da bike (não por delays cegos),
 // mas com uma pequena pausa de 150ms entre os passos para não atropelar a bike.
-async function runHandshake() {
+// Recebe `todosOsCanais` (listados em conectar()) só para poder rodar a varredura
+// de leitura diagnóstica depois do handshake, sem repetir a listagem.
+async function runHandshake(todosOsCanais) {
   setAppState('authenticating');
 
   // 1) Diagnóstico (mudança 4): a bike não respondeu ao +VER? no hardware de
@@ -1691,6 +1725,13 @@ async function runHandshake() {
   if (!verRespondeu) {
     const msgSemResposta = 'A bike não respondeu ao +VER? em nenhum dos três formatos. Copie o Console e mande para análise.';
     log('erro', msgSemResposta);
+    // Handshake falhou: roda a varredura de leitura como diagnóstico posterior,
+    // dentro do que sobrar da conexão (ela pode cair a qualquer momento agora).
+    try {
+      await varreduraLeitura(todosOsCanais);
+    } catch (eVarredura) {
+      log('erro', 'Varredura de leitura (diagnóstico) também falhou: ' + (eVarredura.message || eVarredura));
+    }
     throw new Error(msgSemResposta);
   }
   await sleep(150);
@@ -1762,6 +1803,14 @@ async function runHandshake() {
   // Sucesso: zera o contador de erros.
   setErrorCount(0);
   log('info', 'Autenticado com sucesso (CODE_OK).');
+
+  // Handshake deu certo: agora não há mais pressa, então a varredura de leitura
+  // (diagnóstico) roda aqui em vez de antes do handshake.
+  try {
+    await varreduraLeitura(todosOsCanais);
+  } catch (eVarredura) {
+    log('erro', 'Varredura de leitura (diagnóstico) falhou: ' + (eVarredura.message || eVarredura));
+  }
 
   await consultarEstadoInicial();
 

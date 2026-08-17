@@ -384,3 +384,27 @@ três coisas a mais para ajudar a descobrir o motivo, sem arriscar nada na bike:
 Tudo isso aparece no **Console**, incluindo qual terminador (se algum)
 funcionou. **O que fazer:** abra o Console, toque em **Copiar** e mande esse
 log para análise.
+
+---
+
+## 16. A bike aceita a conexão mas não responde a nada
+
+Em teste no aparelho real, a bike derruba a conexão sozinha uns 30 segundos
+depois de abrir, se o handshake não terminar até lá. E numa das capturas a
+própria escrita do comando (`+VER?`) ficou pendurada mais de 14 segundos até a
+conexão cair — sem limite de tempo, o app não sabia distinguir "a bike não
+respondeu" de "o comando nem chegou a sair".
+
+Para isso não acontecer de novo, o app agora:
+
+1. **Limita cada escrita a 4 segundos** e cronometra quanto ela levou — o
+   Console mostra `Comando ... aceito pelo Bluetooth em Xms.` quando a escrita
+   realmente sai, então dá para ver se o problema foi a escrita travar ou a
+   bike ficar muda depois dela.
+2. **Prioriza o handshake** (a sondagem dos terminadores) dentro dos ~30
+   segundos que a bike concede — a varredura de leitura, que é só curiosidade,
+   agora roda depois, nunca antes.
+
+**O que fazer:** se o Console mostrar a escrita travando (sem a linha "aceito
+pelo Bluetooth em..."), ou a bike desconectando antes do handshake terminar,
+copie o log e mande para análise.
