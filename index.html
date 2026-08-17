@@ -1236,8 +1236,16 @@ function sufixoCanal(uuid) {
 // Acrescenta o terminador de linha descoberto na sondagem (mudança 4) — começa
 // vazio, então antes da sondagem terminar isto não muda nada.
 async function send(cmd) {
+  // Nunca tente escrever sem conexão: sem esta guarda, o JavaScript vazava um erro
+  // interno ("null is not an object") em vez de dizer o que aconteceu de verdade.
+  if (!charWrite || !(bleDevice && bleDevice.gatt && bleDevice.gatt.connected)) {
+    throw new Error('A conexão com a bike não está ativa — o comando não foi enviado. Toque em Conectar.');
+  }
   const cmdFinal = cmd + terminadorQueFunciona;
-  log('tx', cmdFinal);
+  // Mostra o terminador por extenso: se fosse escrito cru, ele quebraria a linha do log.
+  const rotuloTerm = terminadorQueFunciona === '\r\n' ? ' <CRLF>'
+                   : terminadorQueFunciona === '\n' ? ' <LF>' : '';
+  log('tx', cmd + rotuloTerm);
   const data = new TextEncoder().encode(cmdFinal);
   try {
     await charWrite.writeValueWithResponse(data);
