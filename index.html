@@ -1215,6 +1215,7 @@ const CHAR_NOTIFY_UUID = 'd3b85484-7d79-464c-a646-0002a5d5c51b';
 let bleDevice = null;
 let charWrite = null;
 let charNotify = null;
+let caiuDurante = false; // true quando a conexão GATT cai (gattserverdisconnected) no meio da preparação
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -1402,6 +1403,21 @@ function setAppState(novoEstado, mensagem) {
    PARTE F — HANDSHAKE
    ===================================================================== */
 
+// Corre uma promessa contra um cronômetro: se `promessa` não resolver/rejeitar
+// dentro de `ms`, rejeita com um erro dizendo em qual etapa (`rotulo`) travou.
+// Isso evita silêncio longo no log quando alguma etapa da conexão trava.
+function comLimite(promessa, ms, rotulo) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('Tempo esgotado em: ' + rotulo + ' (' + (ms / 1000) + 's)'));
+    }, ms);
+    promessa.then(
+      (valor) => { clearTimeout(timer); resolve(valor); },
+      (erro) => { clearTimeout(timer); reject(erro); }
+    );
+  });
+}
+
 async function conectar() {
   const senha = getSenha();
   if (senha.length !== 6) {
@@ -1414,6 +1430,9 @@ async function conectar() {
     setAppState('error', 'Este navegador não tem Web Bluetooth. No iPhone, o Safari não suporta — abra esta página no navegador Bluefy (disponível na App Store) e use um endereço HTTPS.');
     return;
   }
+
+  caiuDurante = false;
+  log('info', 'Dica: se não conectar, feche o app oficial da iNow de vez (arrastando para cima) e desligue/ligue a bike — só um aplicativo por vez consegue falar com ela.');
 
   try {
     setAppState('connecting');
@@ -1442,21 +1461,32 @@ async function conectar() {
       bleDevice.addEventListener('gattserverdisconnected', onGattDisconnected);
     }
 
-    log('info', `Conectando ao GATT de "${bleDevice.name || bleDevice.id}"...`);
-    const server = await bleDevice.gatt.connect();
-
-    // Se o aparelho escolhido não tiver o serviço da bike, esquecemos ele na hora
-    // para que o próximo toque em Conectar reabra o seletor de Bluetooth.
+    // Cada etapa tem um limite de tempo e um log próprio, para o usuário ver
+    // exatamente onde a conexão travou (em vez do silêncio de antes).
+    // Se a conexão cair no meio do caminho (ou der tempo esgotado por causa
+    // disso), isso é "outro app segurando a bike" — não "aparelho errado" —
+    // então não esquecemos o dispositivo escolhido.
     try {
-      const service = await server.getPrimaryService(SERVICE_UUID);
-      charWrite = await service.getCharacteristic(CHAR_WRITE_UUID);
-      charNotify = await service.getCharacteristic(CHAR_NOTIFY_UUID);
+      log('info', 'Abrindo conexão GATT...');
+      const server = await comLimite(bleDevice.gatt.connect(), 15000, 'abrir conexão GATT');
+
+      log('info', 'Conexão aberta. Procurando o serviço da bike...');
+      const service = await comLimite(server.getPrimaryService(SERVICE_UUID), 10000, 'procurar o serviço da bike');
+
+      log('info', 'Serviço encontrado. Pegando as características...');
+      charWrite = await comLimite(service.getCharacteristic(CHAR_WRITE_UUID), 10000, 'pegar as características');
+      charNotify = await comLimite(service.getCharacteristic(CHAR_NOTIFY_UUID), 10000, 'pegar as características');
+
+      log('info', 'Ativando notificações...');
+      await comLimite(charNotify.startNotifications(), 10000, 'ativar notificações');
     } catch (e) {
+      if (caiuDurante || !(bleDevice.gatt && bleDevice.gatt.connected)) {
+        throw new Error('A conexão com a bike caiu antes de completar a preparação. Isso quase sempre é outro aplicativo segurando a bike. Faça assim: 1) feche o app oficial da iNow de vez, arrastando para cima na lista de apps; 2) desligue e ligue a bike; 3) toque em Tentar novamente.');
+      }
       esquecerDispositivo();
       throw new Error('Esse aparelho não é a sua bike (não tem o serviço esperado). Toque em Conectar e escolha outro da lista.');
     }
 
-    await charNotify.startNotifications();
     charNotify.addEventListener('characteristicvaluechanged', onNotify);
     log('info', 'Notificações ativadas. Iniciando handshake...');
 
@@ -1469,6 +1499,7 @@ async function conectar() {
 
 function onGattDisconnected() {
   log('info', 'A bike desconectou (gattserverdisconnected).');
+  caiuDurante = true; // usado por conectar() para não confundir "conexão caiu" com "aparelho errado"
   liberarWakeLock();
   charWrite = null;
   charNotify = null;

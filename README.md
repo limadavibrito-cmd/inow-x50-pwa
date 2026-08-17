@@ -325,3 +325,24 @@ Quando já souber o que cada número significa, pode desligar **"Gravar log da
 bike"** nas Configurações. O app continua funcionando normalmente sem a
 gravação persistente — só o Console em tempo real (que já existia) continua
 ativo.
+
+---
+
+## 13. A conexão cai sozinha depois de alguns segundos
+
+Se o Console mostra que a conexão foi aberta, mas alguns segundos depois a bike
+desconecta sozinha (`gattserverdisconnected`) antes de terminar de preparar,
+isso quase sempre é **outro aplicativo segurando a bike** — o Bluetooth dela só
+aceita um app conectado por vez (o mesmo problema explicado na seção sobre
+telemetria acima).
+
+**Solução:**
+
+1. Feche o **app oficial da iNow** de vez, arrastando-o para cima na lista de
+   apps recentes (só voltar para a tela inicial **não fecha** o app, ele
+   continua rodando e segurando o Bluetooth).
+2. Desligue e ligue a bike.
+3. Tente conectar de novo.
+
+Nesse caso o app não te obriga a escolher a bike na lista de novo — ele mantém
+o aparelho já escolhido e só pede para tentar uma vez mais.
