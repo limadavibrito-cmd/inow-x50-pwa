@@ -52,14 +52,14 @@ navegador que tenha:
 3. **Não** tente usar "Adicionar à Tela de Início" — esse recurso é exclusivo do
    Safari, e o ícone criado por ele abriria no Safari, que não tem Web Bluetooth
    (o app apareceria mas não conseguiria conectar na bike).
-4. Em vez disso, para ter um acesso rápido:
-   - **Definir como página inicial do Bluefy** (melhor opção): toque no menu ☰
-     (geralmente no canto inferior direito) → **Settings** → procure o campo de
-     homepage/start page → cole o endereço do app. O nome exato do campo pode
-     variar conforme a versão do Bluefy. Assim, o próprio ícone do Bluefy na tela
-     do iPhone já abre direto no app.
-   - **Favoritar** o endereço pela estrela ☆ ao lado da barra de endereço, como
-     reserva.
+4. O Bluefy também **não tem** configuração de página inicial (conferido na versão
+   3.9.3). Então, para ter acesso rápido, o que funciona é:
+   - **Favoritar**: toque na estrela ☆ ao lado da barra de endereço.
+   - **Não fechar a aba**: o Bluefy reabre na última página aberta. Deixando o app
+     na aba, basta tocar no ícone do Bluefy no iPhone que ele já cai direto no app.
+   - **Não mexa** na opção "Ativar anúncios publicitários BLE" das configurações do
+     Bluefy: este app não usa esse recurso, e o próprio Bluefy avisa que ele pode
+     causar comportamento inesperado. Deixe desligada.
 5. Observação honesta: no Bluefy o cache offline **não funciona** (esse navegador
    não tem suporte a service worker). O app funciona normalmente mesmo assim, mas
    para não depender de internet na garagem, é melhor deixar o Bluefy aberto em
@@ -69,7 +69,7 @@ navegador que tenha:
 
 ## 3. Primeiro uso
 
-1. Abra o app no Bluefy (direto, ou pela página inicial/favorito configurado).
+1. Abra o app no Bluefy (pela aba já aberta ou pelo favorito).
 2. Toque na **engrenagem** (⚙️) no canto superior direito.
 3. Digite a **senha de pareamento de 6 dígitos** da sua bike.
 4. Toque em **"Salvar"**.
