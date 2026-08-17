@@ -1432,7 +1432,7 @@ async function conectar() {
   }
 
   caiuDurante = false;
-  log('info', 'Dica: se não conectar, feche o app oficial da iNow de vez (arrastando para cima) e desligue/ligue a bike — só um aplicativo por vez consegue falar com ela.');
+  log('info', 'Dica: só um aplicativo por vez consegue falar com a bike. Se não conectar, o culpado provável é o app oficial da iNow segurando a conexão em segundo plano — desligue a permissão de Bluetooth dele em Ajustes → iNow.');
 
   try {
     setAppState('connecting');
@@ -1481,7 +1481,7 @@ async function conectar() {
       await comLimite(charNotify.startNotifications(), 10000, 'ativar notificações');
     } catch (e) {
       if (caiuDurante || !(bleDevice.gatt && bleDevice.gatt.connected)) {
-        throw new Error('A conexão com a bike caiu antes de completar a preparação. Isso quase sempre é outro aplicativo segurando a bike. Faça assim: 1) feche o app oficial da iNow de vez, arrastando para cima na lista de apps; 2) desligue e ligue a bike; 3) toque em Tentar novamente.');
+        throw new Error('A bike não atendeu — quase sempre o app oficial da iNow está segurando a conexão em segundo plano. Fechar ele arrastando para cima NÃO basta: apps de Bluetooth reconectam sozinhos. Faça assim: 1) Ajustes do iPhone → iNow → DESLIGUE a permissão de Bluetooth; 2) Ajustes → Bluetooth → desligue, espere 10s e ligue (pela Central de Controle não vale); 3) toque em Tentar novamente. Para voltar a usar o app oficial, é só religar a permissão.');
       }
       esquecerDispositivo();
       throw new Error('Esse aparelho não é a sua bike (não tem o serviço esperado). Toque em Conectar e escolha outro da lista.');
