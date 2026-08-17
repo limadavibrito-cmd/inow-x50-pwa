@@ -1,0 +1,1922 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>iNow X50</title>
+
+<!-- PWA: manifesto e ícones -->
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#0E1116">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="X50">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<link rel="icon" href="./icon-192.png">
+
+<style>
+  :root{
+    --bg:#0E1116;
+    --surface:#171B22;
+    --surface-2:#1F2530;
+    --accent:#C6F135;
+    --accent-text:#0E1116;
+    --error:#FF5C5C;
+    --text:#E8EAED;
+    --text-dim:#9AA1AC;
+    --border:#2A3040;
+  }
+  *{ box-sizing:border-box; }
+  html,body{
+    margin:0; padding:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system, BlinkMacSystemFont, "system-ui", "Segoe UI", Roboto, sans-serif;
+    -webkit-text-size-adjust:100%;
+  }
+  body{
+    min-height:100vh;
+    padding-top:env(safe-area-inset-top);
+    padding-bottom:env(safe-area-inset-bottom);
+    padding-left:env(safe-area-inset-left);
+    padding-right:env(safe-area-inset-right);
+    display:flex;
+    flex-direction:column;
+  }
+  button{
+    font-family:inherit;
+    -webkit-tap-highlight-color:transparent;
+  }
+  header{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:14px 16px;
+    border-bottom:1px solid var(--border);
+    position:sticky;
+    top:0;
+    background:var(--bg);
+    z-index:10;
+  }
+  header h1{
+    font-size:1.15rem;
+    margin:0;
+    font-weight:700;
+    flex:0 0 auto;
+  }
+  .pill{
+    padding:6px 12px;
+    border-radius:999px;
+    font-size:0.8rem;
+    font-weight:600;
+    background:var(--surface-2);
+    color:var(--text-dim);
+    white-space:nowrap;
+  }
+  .pill.desconectado{ background:#3a2020; color:#ffb3b3; }
+  .pill.conectando, .pill.autenticando{ background:#3a3420; color:#f0d97a; }
+  .pill.pronto{ background:#20351f; color:var(--accent); }
+  .pill.erro{ background:#3a2020; color:var(--error); }
+
+  .spacer{ flex:1; }
+
+  #btn-settings{
+    background:transparent;
+    border:none;
+    color:var(--text);
+    font-size:1.4rem;
+    width:48px; height:48px;
+    display:flex; align-items:center; justify-content:center;
+    border-radius:10px;
+    cursor:pointer;
+  }
+  #btn-settings:active{ background:var(--surface-2); }
+
+  main{
+    flex:1;
+    padding:16px;
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+    max-width:520px;
+    width:100%;
+    margin:0 auto;
+  }
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:16px;
+  }
+
+  .warning-banner{
+    background:#3a2020;
+    border:1px solid var(--error);
+    color:#ffd0d0;
+    border-radius:12px;
+    padding:12px 14px;
+    font-size:0.9rem;
+    line-height:1.4;
+    display:none;
+  }
+  .warning-banner.show{ display:block; }
+
+  .big-btn{
+    display:block;
+    width:100%;
+    padding:22px;
+    font-size:1.15rem;
+    font-weight:700;
+    border-radius:16px;
+    border:none;
+    cursor:pointer;
+    background:var(--accent);
+    color:var(--accent-text);
+    min-height:64px;
+  }
+  .big-btn:disabled{ opacity:0.6; cursor:default; }
+
+  #btn-main-lock{
+    flex:1;
+    min-height:180px;
+    font-size:1.5rem;
+    border-radius:20px;
+    border:none;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding:24px;
+  }
+  #btn-main-lock.unlocked{ background:var(--accent); color:var(--accent-text); }
+  #btn-main-lock.locked{ background:var(--surface-2); color:var(--text); border:2px solid var(--accent); }
+  #btn-main-lock.desconhecido{ background:var(--surface); color:var(--text-dim); border:1px solid var(--border); font-size:1.1rem; }
+  #btn-main-lock:disabled{ opacity:0.6; }
+
+  .grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+  }
+  .grid button{
+    min-height:64px;
+    border-radius:14px;
+    border:1px solid var(--border);
+    background:var(--surface);
+    color:var(--text);
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:4px;
+    font-size:0.95rem;
+    font-weight:600;
+  }
+  .grid button:active{ background:var(--surface-2); }
+  .grid button:disabled{ opacity:0.5; }
+  .grid button .valor{
+    font-size:0.78rem;
+    color:var(--accent);
+    font-weight:600;
+  }
+  .grid button.enviando{ opacity:0.6; }
+  .grid button.enviando .valor{ color:var(--text-dim); }
+
+  .hidden{ display:none !important; }
+
+  details#console-wrap{
+    border:1px solid var(--border);
+    border-radius:14px;
+    background:var(--surface);
+    overflow:hidden;
+  }
+  details#console-wrap summary{
+    padding:12px 16px;
+    cursor:pointer;
+    font-weight:600;
+    list-style:none;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  details#console-wrap summary::-webkit-details-marker{ display:none; }
+  .console-toolbar{
+    display:flex; gap:8px;
+    padding:8px 12px;
+    border-top:1px solid var(--border);
+  }
+  .console-toolbar button{
+    background:var(--surface-2);
+    color:var(--text);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:8px 12px;
+    font-size:0.85rem;
+    cursor:pointer;
+  }
+  #console-log{
+    max-height:280px;
+    overflow-y:auto;
+    padding:8px 12px 12px;
+    font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:0.75rem;
+    line-height:1.5;
+  }
+  .log-line{ white-space:pre-wrap; word-break:break-word; }
+  .log-tx{ color:#9fd3ff; }
+  .log-rx{ color:var(--accent); }
+  .log-erro{ color:var(--error); }
+  .log-info{ color:var(--text-dim); }
+  .log-marca{ color:#ffcc66; font-weight:700; }
+
+  .captura-dot{
+    font-size:0.72rem;
+    font-weight:700;
+    color:#ff8080;
+    white-space:nowrap;
+  }
+
+  .marca-atalhos{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-top:10px;
+  }
+  .marca-atalhos button{
+    padding:10px;
+    border-radius:10px;
+    border:1px solid var(--border);
+    background:var(--surface-2);
+    color:var(--text-dim);
+    font-size:0.82rem;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .marca-atalhos button:active{ background:var(--surface); }
+
+  /* Modal de configurações */
+  #settings-overlay{
+    position:fixed; inset:0;
+    background:rgba(0,0,0,0.6);
+    display:none;
+    align-items:flex-end;
+    justify-content:center;
+    z-index:100;
+  }
+  #settings-overlay.open{ display:flex; }
+  #settings-panel{
+    background:var(--surface);
+    width:100%;
+    max-width:520px;
+    border-radius:20px 20px 0 0;
+    padding:20px;
+    padding-bottom:calc(20px + env(safe-area-inset-bottom));
+    max-height:88vh;
+    overflow-y:auto;
+  }
+  #settings-panel h2{ margin-top:0; font-size:1.1rem; }
+  .campo{ margin-bottom:16px; }
+  .campo label{ display:block; font-size:0.85rem; color:var(--text-dim); margin-bottom:6px; }
+  .senha-row{ display:flex; gap:8px; }
+  .senha-row input{
+    flex:1;
+    padding:14px;
+    border-radius:10px;
+    border:1px solid var(--border);
+    background:var(--bg);
+    color:var(--text);
+    font-size:1.1rem;
+    letter-spacing:2px;
+  }
+  .senha-row button{
+    min-width:48px;
+    border-radius:10px;
+    border:1px solid var(--border);
+    background:var(--surface-2);
+    color:var(--text);
+    cursor:pointer;
+  }
+  select#connect-type{
+    width:100%;
+    padding:14px;
+    border-radius:10px;
+    border:1px solid var(--border);
+    background:var(--bg);
+    color:var(--text);
+    font-size:1rem;
+  }
+  .btn-row{ display:flex; gap:10px; margin-top:8px; }
+  .btn-secondary{
+    flex:1;
+    padding:14px;
+    border-radius:12px;
+    border:1px solid var(--border);
+    background:var(--surface-2);
+    color:var(--text);
+    cursor:pointer;
+    font-weight:600;
+  }
+  .btn-primary{
+    flex:1;
+    padding:14px;
+    border-radius:12px;
+    border:none;
+    background:var(--accent);
+    color:var(--accent-text);
+    cursor:pointer;
+    font-weight:700;
+  }
+  #test-hash-result{
+    margin-top:10px;
+    font-size:0.85rem;
+    font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    white-space:pre-wrap;
+    background:var(--bg);
+    border-radius:10px;
+    padding:10px;
+    display:none;
+  }
+  #test-hash-result.show{ display:block; }
+  #test-hash-result.ok{ color:var(--accent); }
+  #test-hash-result.fail{ color:var(--error); }
+
+  #captura-export-area{
+    display:none;
+    width:100%;
+    margin-top:10px;
+    height:140px;
+    background:var(--bg);
+    color:var(--text);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:10px;
+    font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:0.75rem;
+    resize:vertical;
+  }
+  #captura-export-area.show{ display:block; }
+
+  /* Modal de "Anotar leitura do app oficial" (mesmo estilo do painel de configurações) */
+  #leitura-overlay{
+    position:fixed; inset:0;
+    background:rgba(0,0,0,0.6);
+    display:none;
+    align-items:flex-end;
+    justify-content:center;
+    z-index:100;
+  }
+  #leitura-overlay.open{ display:flex; }
+  #leitura-panel{
+    background:var(--surface);
+    width:100%;
+    max-width:520px;
+    border-radius:20px 20px 0 0;
+    padding:20px;
+    padding-bottom:calc(20px + env(safe-area-inset-bottom));
+    max-height:88vh;
+    overflow-y:auto;
+  }
+  #leitura-panel h2{ margin-top:0; font-size:1.1rem; }
+  .campo-input{
+    width:100%;
+    padding:14px;
+    border-radius:10px;
+    border:1px solid var(--border);
+    background:var(--bg);
+    color:var(--text);
+    font-size:1rem;
+  }
+
+  .msg-erro{
+    color:var(--error);
+    font-weight:600;
+    margin-bottom:8px;
+  }
+  .msg-info{
+    color:var(--text-dim);
+    font-size:0.9rem;
+    line-height:1.5;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>iNow X50</h1>
+  <span class="captura-dot hidden" id="captura-indicador">● gravando</span>
+  <span class="pill desconectado" id="pill-status">Desconectado</span>
+  <div class="spacer"></div>
+  <button id="btn-settings" title="Configurações" aria-label="Configurações">⚙️</button>
+</header>
+
+<main>
+
+  <!-- Aviso de tentativas de senha erradas -->
+  <div class="warning-banner" id="warning-banner"></div>
+  <!-- Aviso de captura quase cheia / cheia -->
+  <div class="warning-banner" id="captura-banner"></div>
+
+  <!-- Tela: desconectado -->
+  <section id="tela-desconectado" class="card">
+    <p class="msg-info" id="msg-desconectado">Toque em Conectar e escolha a sua bike na lista do Bluetooth.</p>
+    <button class="big-btn" id="btn-connect">Conectar</button>
+    <button class="btn-secondary hidden" id="btn-forget-disconnected" style="margin-top:10px; width:100%;">Escolher outra bike</button>
+  </section>
+
+  <!-- Tela: erro -->
+  <section id="tela-erro" class="card hidden">
+    <p class="msg-erro" id="msg-erro">Ocorreu um erro.</p>
+    <button class="big-btn" id="btn-retry">Tentar novamente</button>
+    <button class="btn-secondary hidden" id="btn-forget-error" style="margin-top:10px; width:100%;">Escolher outra bike</button>
+  </section>
+
+  <!-- Tela: pronto (controles) -->
+  <section id="tela-pronto" class="hidden" style="display:flex; flex-direction:column; gap:16px; flex:1;">
+    <p class="msg-info" id="device-name" style="margin:0;"></p>
+    <button id="btn-main-lock" class="desconhecido">Estado desconhecido — toque para consultar</button>
+    <p class="msg-info" id="lock-confirm" style="margin:0;"></p>
+
+    <div class="grid">
+      <button id="btn-luma">
+        <span>Farol</span>
+        <span class="valor" id="valor-luma">--</span>
+      </button>
+      <button id="btn-drivmd">
+        <span>Modo</span>
+        <span class="valor" id="valor-drivmd">--</span>
+      </button>
+      <button id="btn-crze">
+        <span>Cruise</span>
+        <span class="valor" id="valor-crze">--</span>
+      </button>
+      <button id="btn-gearmode">
+        <span>Marcha</span>
+        <span class="valor" id="valor-gearmode">--</span>
+      </button>
+    </div>
+
+    <div id="bloco-marcar">
+      <button class="btn-secondary" id="btn-marcar-momento" style="width:100%;">Marcar momento</button>
+      <div class="marca-atalhos">
+        <button type="button" id="btn-marca-parado">Parado</button>
+        <button type="button" id="btn-marca-pedalando">Pedalando</button>
+        <button type="button" id="btn-marca-carregando">Carregando</button>
+        <button type="button" id="btn-marca-bateria-cheia">Bateria cheia</button>
+      </div>
+      <button type="button" class="btn-secondary" id="btn-anotar-leitura-pronto" style="width:100%; margin-top:10px; opacity:0.85; font-size:0.85rem;">Anotar leitura do app oficial</button>
+    </div>
+  </section>
+
+  <!-- Console -->
+  <details id="console-wrap">
+    <summary>Console <span id="console-count" style="color:var(--text-dim); font-weight:400; font-size:0.8rem;"></span></summary>
+    <div id="console-log"></div>
+    <div class="console-toolbar">
+      <button id="btn-copy">Copiar</button>
+      <button id="btn-clear">Limpar</button>
+    </div>
+  </details>
+
+</main>
+
+<!-- Modal de configurações -->
+<div id="settings-overlay">
+  <div id="settings-panel">
+    <h2>Configurações</h2>
+
+    <div class="campo">
+      <label for="input-senha">Senha de pareamento (6 dígitos)</label>
+      <div class="senha-row">
+        <input type="password" id="input-senha" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="off">
+        <button id="btn-toggle-senha" type="button" aria-label="Mostrar/ocultar senha">👁️</button>
+      </div>
+    </div>
+
+    <div class="campo">
+      <label for="connect-type">Tipo de conexão (CONNECT_TYPE)</label>
+      <select id="connect-type">
+        <option value="1">1 — padrão</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+      </select>
+    </div>
+
+    <div class="campo">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--text);">
+        <input type="checkbox" id="input-scan-all">
+        Mostrar todos os dispositivos no scan
+      </label>
+      <p class="msg-info" style="margin-top:6px;">Ligue isto se a sua bike não aparecer na lista. A lista vem maior e você precisa achar a bike pelo nome.</p>
+    </div>
+
+    <div class="campo">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--text);">
+        <input type="checkbox" id="input-auto-unlock">
+        Destravar automaticamente ao conectar
+      </label>
+      <p class="msg-info" style="margin-top:6px;">Com isto ligado, a bike já destrava sozinha assim que o app conectar. Um toque a menos — mas cuidado: se você abrir o app sem querer, a bike destrava.</p>
+    </div>
+
+    <div class="campo">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--text);">
+        <input type="checkbox" id="input-captura-ligada">
+        Gravar log da bike (para descobrir a telemetria)
+      </label>
+      <p class="msg-info" style="margin-top:6px;">Guarda tudo que a bike enviar, mesmo depois de fechar o app. Deixe ligado até a telemetria ser decifrada; depois pode desligar.</p>
+    </div>
+
+    <div class="campo">
+      <label>Captura</label>
+      <p class="msg-info" id="captura-stats" style="margin:6px 0 10px;">Nenhuma linha gravada ainda.</p>
+      <div class="btn-row" style="margin-top:0;">
+        <button class="btn-secondary" id="btn-anotar-leitura-config" style="width:100%;">Anotar leitura do app oficial</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn-secondary" id="btn-export-captura" style="width:100%;">Exportar captura</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn-secondary" id="btn-clear-captura" style="width:100%; color:var(--error);">Limpar captura</button>
+      </div>
+      <textarea id="captura-export-area" readonly></textarea>
+      <p class="msg-info" id="captura-export-status" style="margin-top:8px;"></p>
+    </div>
+
+    <div class="campo">
+      <button class="btn-secondary" id="btn-test-hash" style="width:100%;">Testar hash</button>
+      <div id="test-hash-result"></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-secondary" id="btn-close-settings">Fechar</button>
+      <button class="btn-primary" id="btn-save-settings">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Anotar leitura do app oficial -->
+<div id="leitura-overlay">
+  <div id="leitura-panel">
+    <h2>Anotar leitura do app oficial</h2>
+    <p class="msg-info" style="margin-top:-6px; margin-bottom:16px;">
+      Abra o app oficial da iNow, veja os números, feche ele, conecte aqui e digite o que viu.
+      Faça isso sem pedalar no meio, para os números continuarem valendo.
+    </p>
+
+    <div class="campo">
+      <label for="input-leitura-odo">ODO (km)</label>
+      <input type="text" inputmode="decimal" id="input-leitura-odo" class="campo-input" placeholder="ex: 65.6" autocomplete="off">
+    </div>
+    <div class="campo">
+      <label for="input-leitura-bat">Bateria (%)</label>
+      <input type="text" inputmode="decimal" id="input-leitura-bat" class="campo-input" placeholder="ex: 70" autocomplete="off">
+    </div>
+    <div class="campo">
+      <label for="input-leitura-viagem">Viagem (km)</label>
+      <input type="text" inputmode="decimal" id="input-leitura-viagem" class="campo-input" placeholder="ex: 0.5" autocomplete="off">
+    </div>
+    <div class="campo">
+      <label for="input-leitura-vel">Velocidade (km/h)</label>
+      <input type="text" inputmode="decimal" id="input-leitura-vel" class="campo-input" placeholder="ex: 0" autocomplete="off">
+    </div>
+    <div class="campo">
+      <label for="input-leitura-obs">Observação (opcional)</label>
+      <input type="text" id="input-leitura-obs" class="campo-input" placeholder="texto livre curto" autocomplete="off">
+    </div>
+
+    <p class="msg-erro hidden" id="leitura-erro"></p>
+
+    <div class="btn-row">
+      <button class="btn-secondary" id="btn-cancelar-leitura">Cancelar</button>
+      <button class="btn-primary" id="btn-salvar-leitura">Salvar leitura</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* =====================================================================
+   PARTE A — ALGORITMO bikeHash (idêntico ao ref.mjs validado no Node)
+   ===================================================================== */
+
+// Gera a S-box padrão do AES (inverso multiplicativo em GF(2^8) + transformação afim).
+function makeSbox() {
+  const sbox = new Uint8Array(256);
+  const rotl8 = (x, s) => ((x << s) | (x >> (8 - s))) & 0xFF;
+  let p = 1, q = 1;
+  do {
+    p = (p ^ ((p << 1) & 0xFF) ^ ((p & 0x80) ? 0x1B : 0)) & 0xFF;
+    q ^= (q << 1) & 0xFF; q ^= (q << 2) & 0xFF; q ^= (q << 4) & 0xFF; q &= 0xFF;
+    if (q & 0x80) q ^= 0x09;
+    q &= 0xFF;
+    sbox[p] = (q ^ rotl8(q, 1) ^ rotl8(q, 2) ^ rotl8(q, 3) ^ rotl8(q, 4) ^ 0x63) & 0xFF;
+  } while (p !== 1);
+  sbox[0] = 0x63;
+  return sbox;
+}
+const SBOX = makeSbox();
+
+// Valores conhecidos da S-box do AES, usados para confirmar que a tabela gerada está certa.
+const SBOX_KNOWN = { 0x00: 0x63, 0x01: 0x7c, 0x0f: 0x76, 0x10: 0xca, 0x53: 0xed, 0xff: 0x16 };
+
+function hexToBytes(hex) {
+  const clean = hex.replace(/\s+/g, '');
+  const out = new Uint8Array(clean.length / 2);
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(clean.substr(i * 2, 2), 16);
+  return out;
+}
+function bytesToHex(bytes) {
+  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// bikeHash(nonce de 6 bytes, KEY de 16 bytes, INV de 16 bytes) -> 4 bytes
+// Implementação exata do algoritmo combinado à mão para a X50 (não é AES puro,
+// só reaproveita a S-box do AES como componente de mistura).
+function bikeHash(nonceBytes, KEY, INV) {
+  const c = new Uint8Array(32);
+  // c[0..5] e c[6..11] recebem o nonce (repetido duas vezes)
+  for (let k = 0; k < 6; k++) { c[k] = nonceBytes[k]; c[6 + k] = nonceBytes[k]; }
+  // c[12..15] recebem os 4 primeiros bytes do nonce de novo
+  for (let k = 0; k < 4; k++) c[12 + k] = nonceBytes[k];
+  // c[16+k] = c[1+k] para k=0..14 (copia 15 bytes a partir da posição 1)
+  for (let k = 0; k <= 14; k++) c[16 + k] = c[1 + k];
+  // último byte fecha o "anel" copiando o primeiro
+  c[31] = c[0];
+
+  // Passa a KEY pela S-box do AES, byte a byte
+  const kt = new Uint8Array(16);
+  for (let i = 0; i < 16; i++) kt[i] = SBOX[KEY[i] & 0xFF];
+
+  // Roda os 16 bytes da chave transformada 4 posições para a esquerda
+  const saved = kt.slice(0, 4);
+  for (let i = 0; i <= 11; i++) kt[i] = kt[i + 4];
+  for (let i = 0; i < 4; i++) kt[12 + i] = saved[i];
+
+  // Mistura cada metade do buffer com a chave transformada e a constante INV
+  for (let i = 0; i < 16; i++) {
+    c[i] = c[i] ^ kt[i] ^ INV[i];
+    c[i + 16] = c[i + 16] ^ kt[i] ^ INV[i];
+  }
+
+  // Encadeamento cumulativo: cada byte "arrasta" o XOR do byte anterior,
+  // dentro da própria metade (0..15 e 16..31 separados)
+  for (let i = 1; i <= 15; i++) {
+    c[i] = c[i] ^ c[i - 1];
+    c[i + 16] = c[i + 16] ^ c[i + 15];
+  }
+
+  // Combina os 32 bytes em 4 bytes finais. Atenção: a soma (c[i+12]+c[i+16])
+  // é ARITMÉTICA (sem máscara antes), o resto é tudo XOR. Só mascara no fim.
+  const h = new Uint8Array(4);
+  for (let i = 0; i < 4; i++) {
+    const soma = c[i + 12] + c[i + 16];
+    const v = c[i] ^ c[i + 4] ^ c[i + 8] ^ soma ^ c[i + 20] ^ c[i + 24] ^ c[i + 28];
+    h[i] = v & 0xFF;
+  }
+  return h;
+}
+
+// Constantes por CONNECT_TYPE (fornecidas pelo dono do projeto)
+const CONNECT_TYPES = {
+  1: { key: '3948D38E44E437F7242249F4A957874C', inv: '60C4EFFEA105F620E415AC8D7248031D' },
+  2: { key: '84AC42DD89E5D01FB639E6F3322C3375', inv: '2DDA7A3827869A8F31F747A4301C0935' },
+  3: { key: '1D6B4FE19817871B61E9DA3BAD51013B', inv: 'C47F6F9654C6181813DCE1628E8AE25D' },
+};
+
+// Vetores de REGRESSÃO — travam a implementação contra edições futuras.
+// IMPORTANTE: eles NÃO provam que o algoritmo bate com a bike real, só que
+// esta implementação continua calculando exatamente o mesmo valor de antes.
+// A prova real só acontece na bike, no passo +PA> / CODE_OK.
+const REGRESSION_VECTORS = {
+  1: [
+    { nonce: '000000000000', hash: 'c0fc7e7e' },
+    { nonce: '010203040506', hash: 'c0fa7878' },
+    { nonce: 'ffffffffffff', hash: '38fc807e' },
+    { nonce: 'a1b2c3d4e5f6', hash: 'a09a58d8' },
+  ],
+  2: [
+    { nonce: '000000000000', hash: '3c36fcf4' },
+    { nonce: '010203040506', hash: '0234f8fa' },
+    { nonce: 'ffffffffffff', hash: 'c23600f4' },
+    { nonce: 'a1b2c3d4e5f6', hash: 'c2b4185a' },
+  ],
+  3: [
+    { nonce: '000000000000', hash: '0c3eea00' },
+    { nonce: '010203040506', hash: '0204e43e' },
+    { nonce: 'ffffffffffff', hash: 'f23e1400' },
+    { nonce: 'a1b2c3d4e5f6', hash: '22c4c41e' },
+  ],
+};
+
+// Roda a checagem da S-box + todos os vetores de regressão.
+function selfTest() {
+  const detalhes = [];
+  let ok = true;
+
+  for (const [idxHex, esperado] of Object.entries(SBOX_KNOWN)) {
+    const idx = Number(idxHex);
+    const got = SBOX[idx];
+    const passou = got === esperado;
+    console.assert(passou, `S-box[0x${idx.toString(16)}] deveria ser 0x${esperado.toString(16)}, veio 0x${got.toString(16)}`);
+    if (!passou) ok = false;
+    detalhes.push(`S-box[0x${idx.toString(16).padStart(2,'0')}] = 0x${got.toString(16).padStart(2,'0')} ${passou ? 'OK' : 'FALHOU (esperado 0x' + esperado.toString(16) + ')'}`);
+  }
+
+  for (const tipo of [1, 2, 3]) {
+    const { key, inv } = CONNECT_TYPES[tipo];
+    const keyBytes = hexToBytes(key);
+    const invBytes = hexToBytes(inv);
+    for (const vetor of REGRESSION_VECTORS[tipo]) {
+      const got = bytesToHex(bikeHash(hexToBytes(vetor.nonce), keyBytes, invBytes));
+      const passou = got === vetor.hash;
+      console.assert(passou, `TYPE${tipo} nonce=${vetor.nonce}: esperado ${vetor.hash}, veio ${got}`);
+      if (!passou) ok = false;
+      detalhes.push(`TYPE${tipo} nonce=${vetor.nonce} -> ${got} ${passou ? 'OK' : 'FALHOU (esperado ' + vetor.hash + ')'}`);
+    }
+  }
+
+  return { ok, detalhes };
+}
+
+/* =====================================================================
+   PARTE B — CONSOLE NA TELA
+   ===================================================================== */
+
+const consoleLogEl = document.getElementById('console-log');
+const consoleCountEl = document.getElementById('console-count');
+const MAX_LOG_LINES = 500;
+let logCount = 0;
+let logBuffer = []; // guarda o texto puro para o botão Copiar
+
+function log(kind, text) {
+  const now = new Date();
+  const time = [now.getHours(), now.getMinutes(), now.getSeconds()]
+    .map(n => String(n).padStart(2, '0')).join(':') + '.' + String(now.getMilliseconds()).padStart(3, '0');
+  const arrow = arrowFor(kind);
+  const line = `${time} ${arrow} ${text}`;
+
+  const div = document.createElement('div');
+  div.className = 'log-line log-' + kind;
+  div.textContent = line;
+  consoleLogEl.appendChild(div);
+  logBuffer.push(line);
+  logCount++;
+
+  while (consoleLogEl.children.length > MAX_LOG_LINES) {
+    consoleLogEl.removeChild(consoleLogEl.firstChild);
+    logBuffer.shift();
+  }
+  consoleCountEl.textContent = `(${logBuffer.length})`;
+  consoleLogEl.scrollTop = consoleLogEl.scrollHeight;
+
+  // Gravação persistente: acrescentada aqui (não é um caminho paralelo) e
+  // protegida por "está gravando?" dentro de registrarCaptura().
+  registrarCaptura(kind, text);
+}
+
+document.getElementById('btn-copy').addEventListener('click', async () => {
+  const texto = logBuffer.join('\n');
+  try {
+    await navigator.clipboard.writeText(texto);
+    log('info', 'Console copiado para a área de transferência.');
+  } catch (e) {
+    // fallback para navegadores sem Clipboard API
+    const ta = document.createElement('textarea');
+    ta.value = texto;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); log('info', 'Console copiado (modo compatível).'); }
+    catch (e2) { log('erro', 'Não foi possível copiar automaticamente.'); }
+    document.body.removeChild(ta);
+  }
+});
+
+document.getElementById('btn-clear').addEventListener('click', () => {
+  consoleLogEl.innerHTML = '';
+  logBuffer = [];
+  consoleCountEl.textContent = '';
+});
+
+/* =====================================================================
+   PARTE B2 — CAPTURA PERSISTENTE (sobrevive a fechar o app)
+   ===================================================================== */
+
+const LS_CAPTURA = 'x50_captura';
+const LS_CAPTURA_LIGADA = 'x50_capturaLigada';
+const CAPTURA_MAX_LINHAS = 5000;
+const CAPTURA_AVISO_LINHAS = 4500;
+const CAPTURA_LOTE_LINHAS = 25;
+const CAPTURA_LOTE_MS = 2000;
+
+// Padrão LIGADO de propósito: esta é a fase de descoberta da telemetria.
+function getCapturaLigada() {
+  const v = localStorage.getItem(LS_CAPTURA_LIGADA);
+  return v === null ? true : v === '1';
+}
+function setCapturaLigada(v) { localStorage.setItem(LS_CAPTURA_LIGADA, v ? '1' : '0'); }
+
+let capturaLinhas = null;      // array já persistido (carregado sob demanda)
+let capturaPendentes = [];     // linhas novas ainda não gravadas no localStorage
+let capturaTimer = null;       // timer do lote de ~2s
+let capturaParou = false;      // true ao atingir 5000 linhas ou dar erro de quota
+let capturaAvisoMostrado = false; // já avisou os 4500 (90%)?
+
+function arrowFor(kind) {
+  return kind === 'tx' ? '->' : kind === 'rx' ? '<-' : kind === 'erro' ? '!!' : kind === 'marca' ? '##' : '..';
+}
+
+function pad2(n) { return String(n).padStart(2, '0'); }
+function pad3(n) { return String(n).padStart(3, '0'); }
+function timestampCompleto(now) {
+  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())} ${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}.${pad3(now.getMilliseconds())}`;
+}
+
+// Carrega o array de linhas do localStorage (uma vez só; fica em memória depois).
+function carregarCaptura() {
+  if (capturaLinhas !== null) return capturaLinhas;
+  try {
+    const raw = localStorage.getItem(LS_CAPTURA);
+    capturaLinhas = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(capturaLinhas)) capturaLinhas = [];
+  } catch (e) {
+    capturaLinhas = [];
+  }
+  if (capturaLinhas.length >= CAPTURA_MAX_LINHAS) capturaParou = true;
+  if (capturaLinhas.length >= CAPTURA_AVISO_LINHAS) capturaAvisoMostrado = true;
+  return capturaLinhas;
+}
+
+// Chamada de dentro de log() para toda linha que passa pelo console (tx/rx/info/erro/marca).
+function registrarCaptura(kind, text) {
+  if (!getCapturaLigada()) return;
+  carregarCaptura();
+  if (capturaParou) return; // já atingiu o limite (ou deu erro de quota) — não grava mais
+
+  const linha = `${timestampCompleto(new Date())} ${arrowFor(kind)} ${text}`;
+  capturaPendentes.push(linha);
+
+  const total = capturaLinhas.length + capturaPendentes.length;
+
+  if (total >= CAPTURA_MAX_LINHAS) {
+    capturaParou = true;
+    persistirCaptura();
+    atualizarBannerCaptura();
+    atualizarIndicadorGravando();
+    log('erro', 'Captura cheia — nada mais está sendo gravado. Exporte e limpe.');
+    return;
+  }
+
+  if (total >= CAPTURA_AVISO_LINHAS && !capturaAvisoMostrado) {
+    capturaAvisoMostrado = true;
+    persistirCaptura();
+    atualizarBannerCaptura();
+    log('erro', 'Captura quase cheia (4500 de 5000 linhas). Exporte e limpe antes de continuar.');
+    return;
+  }
+
+  if (capturaPendentes.length >= CAPTURA_LOTE_LINHAS) {
+    persistirCaptura();
+  } else {
+    agendarPersistCaptura();
+  }
+}
+
+function agendarPersistCaptura() {
+  if (capturaTimer) return;
+  capturaTimer = setTimeout(() => {
+    capturaTimer = null;
+    persistirCaptura();
+  }, CAPTURA_LOTE_MS);
+}
+
+// Grava em lote no localStorage. Nunca deixa o app quebrar por causa disso:
+// se a quota estourar, para a gravação e avisa, sem perder o que já estava salvo.
+function persistirCaptura() {
+  if (capturaTimer) { clearTimeout(capturaTimer); capturaTimer = null; }
+  if (!capturaPendentes.length) return;
+  carregarCaptura();
+  const novaLista = capturaLinhas.concat(capturaPendentes);
+  try {
+    localStorage.setItem(LS_CAPTURA, JSON.stringify(novaLista));
+    capturaLinhas = novaLista;
+    capturaPendentes = [];
+  } catch (e) {
+    capturaParou = true;
+    capturaPendentes = [];
+    log('erro', 'O armazenamento do celular encheu — a gravação da captura foi PARADA para não travar o app. Exporte o que já foi salvo e limpe a captura.');
+  }
+  atualizarBannerCaptura();
+  atualizarIndicadorGravando();
+  atualizarStatsConfiguracoes();
+}
+
+function atualizarBannerCaptura() {
+  const banner = document.getElementById('captura-banner');
+  carregarCaptura();
+  const total = capturaLinhas.length + capturaPendentes.length;
+  if (total >= CAPTURA_MAX_LINHAS) {
+    banner.textContent = 'Captura cheia — nada mais está sendo gravado. Exporte e limpe.';
+    banner.classList.add('show');
+  } else if (total >= CAPTURA_AVISO_LINHAS) {
+    banner.textContent = 'Captura quase cheia (4500 de 5000 linhas). Exporte e limpe antes de continuar.';
+    banner.classList.add('show');
+  } else {
+    banner.classList.remove('show');
+  }
+}
+
+function atualizarIndicadorGravando() {
+  const el = document.getElementById('captura-indicador');
+  if (!getCapturaLigada()) { el.classList.add('hidden'); return; }
+  carregarCaptura();
+  el.textContent = capturaParou ? '● captura cheia' : '● gravando';
+  el.classList.remove('hidden');
+}
+
+function atualizarStatsConfiguracoes() {
+  carregarCaptura();
+  const statsEl = document.getElementById('captura-stats');
+  if (!statsEl) return;
+  const todasLinhas = capturaLinhas.concat(capturaPendentes);
+  if (!todasLinhas.length) {
+    statsEl.textContent = 'Nenhuma linha gravada ainda.';
+    return;
+  }
+  const primeira = todasLinhas[0];
+  const desde = primeira ? primeira.split(' ').slice(0, 2).join(' ') : '--';
+  const tamanhoKB = Math.max(1, Math.round(JSON.stringify(todasLinhas).length / 1024));
+  statsEl.textContent = `${todasLinhas.length} linha(s) gravada(s), desde ${desde} — aproximadamente ${tamanhoKB} KB.`;
+}
+
+function nomeArquivoData(now) {
+  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}-${pad2(now.getHours())}${pad2(now.getMinutes())}`;
+}
+
+// Monta o texto completo para exportação: cabeçalho com metadados + todas as linhas.
+function montarTextoExportacao() {
+  persistirCaptura(); // garante que nada pendente fique de fora
+  carregarCaptura();
+  const agora = new Date();
+  const nomeDispositivo = bleDevice ? (bleDevice.name || bleDevice.id) : 'desconhecido (não conectado nesta sessão)';
+  const tipo = getConnectType();
+  const cabecalho = [
+    `Captura iNow X50 — exportada em ${timestampCompleto(agora)}`,
+    `Dispositivo: ${nomeDispositivo}`,
+    `CONNECT_TYPE em uso: ${tipo}`,
+    `Total de linhas: ${capturaLinhas.length}`,
+    'Log cru da bike iNow X50 — para decifrar o formato da telemetria.',
+    '',
+    '----------------------------------------',
+    '',
+  ].join('\n');
+  return cabecalho + capturaLinhas.join('\n') + (capturaLinhas.length ? '\n' : '');
+}
+
+// Mantém a tela acesa enquanto conectado e com a captura ligada (nunca quebra o app).
+let wakeLock = null;
+
+async function tentarManterTelaAcesa() {
+  if (appState !== 'ready') return;
+  if (!getCapturaLigada()) return;
+  if (!('wakeLock' in navigator)) {
+    log('info', 'Este navegador não permite manter a tela acesa — mantenha o celular desbloqueado e com o app aberto durante a captura.');
+    return;
+  }
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    log('info', 'Tela mantida acesa durante a captura.');
+  } catch (e) {
+    log('info', 'Este navegador não permite manter a tela acesa — mantenha o celular desbloqueado e com o app aberto durante a captura.');
+  }
+}
+
+async function liberarWakeLock() {
+  try {
+    if (wakeLock) await wakeLock.release();
+  } catch (e) { /* nunca deixa isso quebrar nada */ }
+  wakeLock = null;
+}
+
+// Persiste imediatamente ao ocultar a página (iOS pode suspender o app a qualquer
+// momento depois disso) e tenta reobter a tela acesa quando ela volta a ficar visível.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    persistirCaptura();
+  } else {
+    tentarManterTelaAcesa();
+  }
+});
+window.addEventListener('pagehide', () => {
+  persistirCaptura();
+});
+
+/* =====================================================================
+   PARTE C — CONFIGURAÇÕES (localStorage)
+   ===================================================================== */
+
+const LS_SENHA = 'x50_senha';
+const LS_CONNECT_TYPE = 'x50_connectType';
+const LS_ERROR_COUNT = 'x50_errorCount';
+const LS_SCAN_ALL = 'x50_scanAll';
+const LS_AUTO_UNLOCK = 'x50_autoUnlock';
+
+function getSenha() { return localStorage.getItem(LS_SENHA) || ''; }
+function getConnectType() { return Number(localStorage.getItem(LS_CONNECT_TYPE) || '1'); }
+function getErrorCount() { return Number(localStorage.getItem(LS_ERROR_COUNT) || '0'); }
+function setErrorCount(n) { localStorage.setItem(LS_ERROR_COUNT, String(n)); atualizarBannerAviso(); }
+function getScanAll() { return localStorage.getItem(LS_SCAN_ALL) === '1'; }
+function setScanAll(v) { localStorage.setItem(LS_SCAN_ALL, v ? '1' : '0'); }
+// Padrão DESLIGADO por segurança: a bike só destrava sozinha se o dono ligar isto de propósito.
+function getAutoUnlock() { return localStorage.getItem(LS_AUTO_UNLOCK) === '1'; }
+function setAutoUnlock(v) { localStorage.setItem(LS_AUTO_UNLOCK, v ? '1' : '0'); }
+
+function atualizarBannerAviso() {
+  const banner = document.getElementById('warning-banner');
+  const count = getErrorCount();
+  if (count > 0) {
+    banner.textContent = `Atenção: ${count} de 3 tentativas erradas. Na 3ª a bike ESQUECE o pareamento e você terá que parear tudo de novo.`;
+    banner.classList.add('show');
+  } else {
+    banner.classList.remove('show');
+  }
+}
+
+// Painel de configurações
+const settingsOverlay = document.getElementById('settings-overlay');
+const inputSenha = document.getElementById('input-senha');
+const btnToggleSenha = document.getElementById('btn-toggle-senha');
+const selectConnectType = document.getElementById('connect-type');
+const testHashResult = document.getElementById('test-hash-result');
+const inputScanAll = document.getElementById('input-scan-all');
+const inputAutoUnlock = document.getElementById('input-auto-unlock');
+const inputCapturaLigada = document.getElementById('input-captura-ligada');
+const btnExportCaptura = document.getElementById('btn-export-captura');
+const btnClearCaptura = document.getElementById('btn-clear-captura');
+const capturaExportArea = document.getElementById('captura-export-area');
+const capturaExportStatusEl = document.getElementById('captura-export-status');
+
+function abrirConfiguracoes() {
+  inputSenha.value = getSenha();
+  selectConnectType.value = String(getConnectType());
+  inputScanAll.checked = getScanAll();
+  inputAutoUnlock.checked = getAutoUnlock();
+  inputCapturaLigada.checked = getCapturaLigada();
+  testHashResult.classList.remove('show', 'ok', 'fail');
+  capturaExportArea.classList.remove('show');
+  capturaExportStatusEl.textContent = '';
+  persistirCaptura(); // garante que as estatísticas abaixo reflitam tudo que já foi gravado
+  atualizarStatsConfiguracoes();
+  settingsOverlay.classList.add('open');
+}
+function fecharConfiguracoes() { settingsOverlay.classList.remove('open'); }
+
+document.getElementById('btn-settings').addEventListener('click', abrirConfiguracoes);
+document.getElementById('btn-close-settings').addEventListener('click', fecharConfiguracoes);
+settingsOverlay.addEventListener('click', (e) => { if (e.target === settingsOverlay) fecharConfiguracoes(); });
+
+inputSenha.addEventListener('input', () => {
+  inputSenha.value = inputSenha.value.replace(/\D/g, '').slice(0, 6);
+});
+
+btnToggleSenha.addEventListener('click', () => {
+  inputSenha.type = inputSenha.type === 'password' ? 'text' : 'password';
+});
+
+inputScanAll.addEventListener('change', () => {
+  setScanAll(inputScanAll.checked);
+  log('info', 'Preferência de scan salva: ' + (inputScanAll.checked ? 'mostrando todos os dispositivos.' : 'usando filtro padrão da bike.'));
+});
+
+inputAutoUnlock.addEventListener('change', () => {
+  setAutoUnlock(inputAutoUnlock.checked);
+  log('info', 'Preferência de destravar automaticamente salva: ' + (inputAutoUnlock.checked ? 'ligada.' : 'desligada.'));
+});
+
+inputCapturaLigada.addEventListener('change', () => {
+  setCapturaLigada(inputCapturaLigada.checked);
+  log('info', 'Gravação de log da bike: ' + (inputCapturaLigada.checked ? 'LIGADA.' : 'DESLIGADA.'));
+  atualizarIndicadorGravando();
+  if (inputCapturaLigada.checked) {
+    tentarManterTelaAcesa();
+  } else {
+    liberarWakeLock();
+  }
+});
+
+function mostrarTextareaExportacao(texto) {
+  capturaExportArea.value = texto;
+  capturaExportArea.classList.add('show');
+  capturaExportArea.focus();
+  capturaExportArea.select();
+}
+
+async function exportarCaptura() {
+  const texto = montarTextoExportacao();
+  const nomeArquivo = `captura-x50-${nomeArquivoData(new Date())}.txt`;
+
+  // 1) Caminho natural no iPhone: compartilhar um arquivo de verdade.
+  try {
+    if (navigator.share && navigator.canShare) {
+      const arquivo = new File([texto], nomeArquivo, { type: 'text/plain' });
+      if (navigator.canShare({ files: [arquivo] })) {
+        await navigator.share({ files: [arquivo], title: nomeArquivo });
+        capturaExportStatusEl.textContent = `Exportado por compartilhamento (arquivo ${nomeArquivo}).`;
+        log('info', 'Captura exportada via compartilhamento do sistema (' + capturaLinhas.length + ' linhas).');
+        mostrarTextareaExportacao(texto);
+        return;
+      }
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') {
+      capturaExportStatusEl.textContent = 'Compartilhamento cancelado. O texto continua disponível abaixo para copiar.';
+      mostrarTextareaExportacao(texto);
+      return;
+    }
+    log('erro', 'Falha ao tentar compartilhar a captura: ' + (e.message || e));
+  }
+
+  // 2) Sem compartilhamento de arquivo: tenta copiar tudo para a área de transferência.
+  try {
+    await navigator.clipboard.writeText(texto);
+    capturaExportStatusEl.textContent = `Captura copiada para a área de transferência (${capturaLinhas.length} linha(s)).`;
+    log('info', 'Captura copiada para a área de transferência.');
+    mostrarTextareaExportacao(texto);
+    return;
+  } catch (e) {
+    // segue para o textarea abaixo
+  }
+
+  // 3) Último recurso (e sempre disponível como complemento): mostra tudo num textarea para copiar na mão.
+  capturaExportStatusEl.textContent = 'Copie manualmente o texto selecionado abaixo.';
+  mostrarTextareaExportacao(texto);
+}
+
+btnExportCaptura.addEventListener('click', () => { exportarCaptura(); });
+
+btnClearCaptura.addEventListener('click', () => {
+  carregarCaptura();
+  const total = capturaLinhas.length + capturaPendentes.length;
+  if (total === 0) {
+    alert('Não há nada gravado para limpar.');
+    return;
+  }
+  const confirmar = window.confirm(
+    `Isso vai apagar PARA SEMPRE o log gravado (${total} linha(s)).\n` +
+    `Você já exportou/guardou esse conteúdo em algum lugar?\n\n` +
+    `Só confirme se já salvou o que precisa.`
+  );
+  if (!confirmar) return;
+
+  capturaLinhas = [];
+  capturaPendentes = [];
+  capturaParou = false;
+  capturaAvisoMostrado = false;
+  try { localStorage.removeItem(LS_CAPTURA); } catch (e) {}
+  capturaExportArea.classList.remove('show');
+  capturaExportStatusEl.textContent = '';
+  atualizarBannerCaptura();
+  atualizarIndicadorGravando();
+  atualizarStatsConfiguracoes();
+  log('info', 'Captura apagada pelo usuário.');
+});
+
+document.getElementById('btn-test-hash').addEventListener('click', () => {
+  const resultado = selfTest();
+  testHashResult.classList.remove('ok', 'fail');
+  testHashResult.classList.add('show', resultado.ok ? 'ok' : 'fail');
+  testHashResult.textContent = (resultado.ok ? 'PASSOU\n' : 'FALHOU\n') + resultado.detalhes.join('\n');
+});
+
+document.getElementById('btn-save-settings').addEventListener('click', () => {
+  const senha = inputSenha.value.replace(/\D/g, '');
+  if (senha.length !== 6) {
+    alert('A senha precisa ter exatamente 6 dígitos.');
+    return;
+  }
+  localStorage.setItem(LS_SENHA, senha);
+  localStorage.setItem(LS_CONNECT_TYPE, selectConnectType.value);
+  log('info', 'Configurações salvas.');
+  fecharConfiguracoes();
+});
+
+/* =====================================================================
+   PARTE D — PROTOCOLO BLE
+   ===================================================================== */
+
+const SERVICE_UUID = 'd3b85480-7d79-464c-a646-0002a5d5c51b';
+const CHAR_WRITE_UUID = 'd3b85481-7d79-464c-a646-0002a5d5c51b';
+const CHAR_NOTIFY_UUID = 'd3b85484-7d79-464c-a646-0002a5d5c51b';
+
+let bleDevice = null;
+let charWrite = null;
+let charNotify = null;
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// Envia um comando de texto pela característica de escrita, com cascata de
+// fallbacks para funcionar em implementações antigas (ex: Bluefy mais velho).
+async function send(cmd) {
+  log('tx', cmd);
+  const data = new TextEncoder().encode(cmd);
+  try {
+    await charWrite.writeValueWithResponse(data);
+  } catch (e) {
+    try {
+      await charWrite.writeValueWithoutResponse(data);
+    } catch (e2) {
+      await charWrite.writeValue(data);
+    }
+  }
+}
+
+/* ---- Recepção com remontagem de fragmentos ---- */
+let rxBuffer = '';
+let flushTimer = null;
+let pendingWaiter = null; // { predicate, resolve, reject, label }
+
+function onNotify(event) {
+  const value = event.target.value;
+  const text = new TextDecoder('utf-8').decode(value);
+  rxBuffer += text;
+  processBuffer();
+  resetFlushTimer();
+}
+
+function processBuffer() {
+  const re = /\r\n|\r|\n/;
+  while (re.test(rxBuffer)) {
+    const m = rxBuffer.match(re);
+    const idx = m.index;
+    const linha = rxBuffer.slice(0, idx);
+    rxBuffer = rxBuffer.slice(idx + m[0].length);
+    if (linha.trim().length) emitLine(linha.trim());
+  }
+  // Se sobrou resto e existe um waiter cujo predicado já casa com o resto, emite mesmo sem quebra de linha.
+  if (rxBuffer.length && pendingWaiter) {
+    const trimmed = rxBuffer.trim();
+    if (trimmed.length && safePredicate(pendingWaiter.predicate, trimmed)) {
+      rxBuffer = '';
+      emitLine(trimmed);
+    }
+  }
+}
+
+function resetFlushTimer() {
+  if (flushTimer) clearTimeout(flushTimer);
+  flushTimer = setTimeout(() => {
+    if (rxBuffer.trim().length) {
+      const leftover = rxBuffer.trim();
+      rxBuffer = '';
+      emitLine(leftover);
+    }
+  }, 250);
+}
+
+function safePredicate(fn, linha) {
+  try { return fn(linha); } catch (e) { return false; }
+}
+
+// Processa uma linha completa recebida da bike.
+function emitLine(linha) {
+  log('rx', linha);
+  atualizarEstadoPelaLinha(linha);
+  if (pendingWaiter && safePredicate(pendingWaiter.predicate, linha)) {
+    const w = pendingWaiter;
+    pendingWaiter = null;
+    w.resolve(linha);
+  }
+}
+
+// Espera uma linha que bata com o predicado, com timeout e mensagem de qual passo travou.
+function expect(predicate, rotulo, ms = 4000) {
+  return new Promise((resolve, reject) => {
+    if (pendingWaiter) {
+      reject(new Error('Já existe uma espera pendente (erro interno).'));
+      return;
+    }
+    const timer = setTimeout(() => {
+      pendingWaiter = null;
+      reject(new Error(`Tempo esgotado esperando resposta no passo: ${rotulo} — veja a última linha no Console; se ela terminar em NG, a bike recusou (provável CONNECT_TYPE errado).`));
+    }, ms);
+    pendingWaiter = {
+      predicate,
+      resolve: (linha) => { clearTimeout(timer); resolve(linha); },
+      reject: (err) => { clearTimeout(timer); reject(err); },
+    };
+  });
+}
+
+// Atualiza o estado dos controles quando uma linha de status chega (mesmo sem ninguém ter pedido).
+let estado = { lock: null, luma: null, drivmd: null, crze: null, gearmode: null };
+
+function atualizarEstadoPelaLinha(linha) {
+  if (linha.startsWith('+LOCK=')) {
+    const v = linha.slice(6).trim();
+    if (v === '0' || v === '1') { estado.lock = v; renderLock(); }
+  } else if (linha.startsWith('+LUMA=')) {
+    const m = linha.slice(6).trim().match(/M0L([0-2])/i);
+    if (m) { estado.luma = m[1]; renderLuma(); }
+  } else if (linha.startsWith('+DRIVMD=')) {
+    const v = linha.slice(8).trim();
+    if (v === '0' || v === '1') { estado.drivmd = v; renderDrivmd(); }
+  } else if (linha.startsWith('+CRZE=')) {
+    const v = linha.slice(6).trim();
+    if (v === '0' || v === '1') { estado.crze = v; renderCrze(); }
+  } else if (linha.startsWith('+GEARMODE=')) {
+    const v = linha.slice(10).trim();
+    if (v === '0' || v === '1') { estado.gearmode = v; renderGearmode(); }
+  }
+}
+
+/* =====================================================================
+   PARTE E — MÁQUINA DE ESTADOS DA TELA
+   ===================================================================== */
+
+const telaDesconectado = document.getElementById('tela-desconectado');
+const telaErro = document.getElementById('tela-erro');
+const telaPronto = document.getElementById('tela-pronto');
+const pillStatus = document.getElementById('pill-status');
+const btnConnect = document.getElementById('btn-connect');
+const btnRetry = document.getElementById('btn-retry');
+const msgErro = document.getElementById('msg-erro');
+const msgDesconectado = document.getElementById('msg-desconectado');
+const btnForgetDisconnected = document.getElementById('btn-forget-disconnected');
+const btnForgetError = document.getElementById('btn-forget-error');
+const deviceNameEl = document.getElementById('device-name');
+
+let appState = 'disconnected'; // disconnected | connecting | authenticating | ready | error
+
+function setAppState(novoEstado, mensagem) {
+  appState = novoEstado;
+  const textos = {
+    disconnected: 'Desconectado',
+    connecting: 'Conectando',
+    authenticating: 'Autenticando',
+    ready: 'Pronto',
+    error: 'Erro',
+  };
+  pillStatus.textContent = textos[novoEstado] || novoEstado;
+  pillStatus.className = 'pill ' + ({
+    disconnected: 'desconectado', connecting: 'conectando', authenticating: 'autenticando',
+    ready: 'pronto', error: 'erro',
+  }[novoEstado] || '');
+
+  telaDesconectado.classList.toggle('hidden', novoEstado !== 'disconnected');
+  telaErro.classList.toggle('hidden', novoEstado !== 'error');
+  telaPronto.classList.toggle('hidden', novoEstado !== 'ready');
+
+  if (novoEstado === 'error') {
+    msgErro.textContent = mensagem || 'Ocorreu um erro desconhecido.';
+  }
+  if (novoEstado === 'disconnected') {
+    btnConnect.textContent = bleDevice ? 'Reconectar' : 'Conectar';
+    msgDesconectado.textContent = bleDevice
+      ? 'A conexão caiu. Toque em Reconectar para tentar de novo.'
+      : 'Toque em Conectar e escolha a sua bike na lista do Bluetooth.';
+  }
+  if (novoEstado === 'connecting' || novoEstado === 'authenticating') {
+    btnConnect.disabled = true;
+  } else {
+    btnConnect.disabled = false;
+  }
+
+  // O botão "Escolher outra bike" só faz sentido se já existe um dispositivo
+  // escolhido guardado (senão o seletor já vai abrir sozinho no próximo Conectar).
+  const temDispositivo = bleDevice !== null;
+  btnForgetDisconnected.classList.toggle('hidden', !temDispositivo);
+  btnForgetError.classList.toggle('hidden', !temDispositivo);
+
+  if (novoEstado === 'ready') {
+    deviceNameEl.textContent = bleDevice ? ('Conectado a: ' + (bleDevice.name || bleDevice.id)) : '';
+  } else {
+    deviceNameEl.textContent = '';
+  }
+}
+
+/* =====================================================================
+   PARTE F — HANDSHAKE
+   ===================================================================== */
+
+async function conectar() {
+  const senha = getSenha();
+  if (senha.length !== 6) {
+    log('erro', 'Configure a senha de pareamento (6 dígitos) antes de conectar.');
+    abrirConfiguracoes();
+    return;
+  }
+
+  if (!navigator.bluetooth) {
+    setAppState('error', 'Este navegador não tem Web Bluetooth. No iPhone, o Safari não suporta — abra esta página no navegador Bluefy (disponível na App Store) e use um endereço HTTPS.');
+    return;
+  }
+
+  try {
+    setAppState('connecting');
+
+    if (!bleDevice) {
+      log('info', 'Abrindo seletor de dispositivos Bluetooth...');
+      const scanAll = getScanAll();
+      try {
+        if (scanAll) {
+          bleDevice = await navigator.bluetooth.requestDevice({
+            acceptAllDevices: true,
+            optionalServices: [SERVICE_UUID],
+          });
+        } else {
+          bleDevice = await navigator.bluetooth.requestDevice({
+            filters: [{ services: [SERVICE_UUID] }],
+            optionalServices: [SERVICE_UUID],
+          });
+        }
+      } catch (e) {
+        if (e && e.name === 'NotFoundError' && !scanAll) {
+          log('info', "Nenhuma bike encontrada com o filtro. Se a lista veio vazia, abra as Configurações e ligue 'Mostrar todos os dispositivos no scan'.");
+        }
+        throw e;
+      }
+      bleDevice.addEventListener('gattserverdisconnected', onGattDisconnected);
+    }
+
+    log('info', `Conectando ao GATT de "${bleDevice.name || bleDevice.id}"...`);
+    const server = await bleDevice.gatt.connect();
+
+    // Se o aparelho escolhido não tiver o serviço da bike, esquecemos ele na hora
+    // para que o próximo toque em Conectar reabra o seletor de Bluetooth.
+    try {
+      const service = await server.getPrimaryService(SERVICE_UUID);
+      charWrite = await service.getCharacteristic(CHAR_WRITE_UUID);
+      charNotify = await service.getCharacteristic(CHAR_NOTIFY_UUID);
+    } catch (e) {
+      esquecerDispositivo();
+      throw new Error('Esse aparelho não é a sua bike (não tem o serviço esperado). Toque em Conectar e escolha outro da lista.');
+    }
+
+    await charNotify.startNotifications();
+    charNotify.addEventListener('characteristicvaluechanged', onNotify);
+    log('info', 'Notificações ativadas. Iniciando handshake...');
+
+    await runHandshake();
+  } catch (e) {
+    console.error(e);
+    setAppState('error', e.message || String(e));
+  }
+}
+
+function onGattDisconnected() {
+  log('info', 'A bike desconectou (gattserverdisconnected).');
+  liberarWakeLock();
+  charWrite = null;
+  charNotify = null;
+  if (pendingWaiter) { pendingWaiter.reject(new Error('Conexão perdida.')); pendingWaiter = null; }
+  // Zera o estado guardado para a tela não mostrar valores da sessão anterior
+  // quando reconectar (estado foi declarado com "let", então pode ser reatribuído aqui).
+  estado = { lock: null, luma: null, drivmd: null, crze: null, gearmode: null };
+  rxBuffer = '';
+  renderLock();
+  renderLuma();
+  renderDrivmd();
+  renderCrze();
+  renderGearmode();
+  limparConfirmacaoLock(); // informação velha de trava não pode ficar na tela
+  setAppState('disconnected');
+}
+
+// Esquece o dispositivo Bluetooth escolhido, para que o seletor volte a abrir
+// no próximo toque em Conectar (útil quando o usuário escolheu o aparelho errado).
+function esquecerDispositivo(motivo) {
+  liberarWakeLock();
+  if (bleDevice) {
+    try { bleDevice.removeEventListener('gattserverdisconnected', onGattDisconnected); } catch (e) {}
+    try {
+      if (bleDevice.gatt && bleDevice.gatt.connected) {
+        bleDevice.gatt.disconnect();
+      }
+    } catch (e) {}
+  }
+  bleDevice = null;
+  charWrite = null;
+  charNotify = null;
+  rxBuffer = '';
+  estado = { lock: null, luma: null, drivmd: null, crze: null, gearmode: null };
+  renderLock();
+  renderLuma();
+  renderDrivmd();
+  renderCrze();
+  renderGearmode();
+  limparConfirmacaoLock();
+  log('info', 'Dispositivo esquecido' + (motivo ? ': ' + motivo : '') + '. O seletor de Bluetooth vai abrir de novo no próximo toque em Conectar.');
+  setAppState('disconnected');
+}
+
+// O handshake é dirigido pelas respostas da bike (não por delays cegos),
+// mas com uma pequena pausa de 150ms entre os passos para não atropelar a bike.
+async function runHandshake() {
+  setAppState('authenticating');
+
+  // 1) Pergunta a versão do firmware — só para "acordar" a conversa.
+  await send('+VER?');
+  await expect(l => l.startsWith('+VER='), 'VER (versão do firmware)');
+  await sleep(150);
+
+  // 2) Pede um desafio (nonce) para a bike.
+  await send('+PM?');
+  const pmLine = await expect(l => l.startsWith('+PM>') && l.length === 16, 'PM (recebendo nonce da bike)');
+  const nonceHex = pmLine.slice(4, 16);
+  const nonceBytes = hexToBytes(nonceHex);
+  await sleep(150);
+
+  // 3) Calcula o hash do nonce com a chave escolhida e devolve para a bike se autenticar.
+  const tipo = getConnectType();
+  const { key, inv } = CONNECT_TYPES[tipo];
+  const keyBytes = hexToBytes(key);
+  const invBytes = hexToBytes(inv);
+
+  const hashResposta = bytesToHex(bikeHash(nonceBytes, keyBytes, invBytes));
+  await send('+PM<' + hashResposta);
+  const pmConfirmLine = await expect(l => /^\+PM[=>](OK|NG)/i.test(l), 'PM (confirmação da bike)');
+  if (/NG/i.test(pmConfirmLine)) {
+    const msgRecusa = `A bike RECUSOU a chave de autenticação (recebido: ${pmConfirmLine}). Isso quase sempre quer dizer que o CONNECT_TYPE está errado. Abra as Configurações (engrenagem), troque o Tipo de conexão para 2 e tente de novo. Se também recusar, tente o tipo 3.`;
+    log('erro', msgRecusa);
+    throw new Error(msgRecusa);
+  }
+  await sleep(150);
+
+  // 4) Agora fazemos o caminho inverso: mandamos nosso próprio desafio para a bike provar quem ela é.
+  const desafio = new Uint8Array(6);
+  crypto.getRandomValues(desafio);
+  const desafioHex = bytesToHex(desafio);
+  await send('+PA<' + desafioHex);
+  const paLine = await expect(l => l.toUpperCase().startsWith('+PA>'), 'PA (resposta ao nosso desafio)');
+  await sleep(150);
+
+  const esperado = bytesToHex(bikeHash(desafio, keyBytes, invBytes));
+  const recebido = paLine.slice(4).trim().toLowerCase();
+  if (recebido !== esperado) {
+    log('erro', `AVISO: a bike não confirmou o desafio PA como esperado (recebido=${recebido}, esperado=${esperado}). Pode ser diferença de convenção — continuando mesmo assim. Se o CODE também falhar, tente outro CONNECT_TYPE nas Configurações.`);
+  } else {
+    log('info', 'Desafio PA confirmado pela bike.');
+  }
+
+  // 5) Envia a senha de pareamento (sem "+" na frente).
+  const count = getErrorCount();
+  if (count >= 2) {
+    const confirmar = window.confirm(
+      `Atenção: essa será a tentativa nº ${count + 1} de 3.\n` +
+      `Se a senha estiver errada de novo, a bike ESQUECE o pareamento e será preciso parear tudo de novo.\n\n` +
+      `Deseja continuar mesmo assim?`
+    );
+    if (!confirmar) {
+      throw new Error('Envio da senha cancelado pelo usuário antes da 3ª tentativa.');
+    }
+  }
+
+  const senha = getSenha();
+  await send('CODE=' + senha);
+  const codeLine = await expect(l => l.startsWith('CODE_OK') || l.startsWith('CODE_NG'), 'CODE (validação da senha)');
+
+  if (codeLine.startsWith('CODE_NG')) {
+    const novoCount = getErrorCount() + 1;
+    setErrorCount(novoCount);
+    setAppState('error', 'Senha incorreta.');
+    log('erro', `Senha incorreta. Tentativa ${novoCount} de 3.`);
+    return;
+  }
+
+  // Sucesso: zera o contador de erros.
+  setErrorCount(0);
+  log('info', 'Autenticado com sucesso (CODE_OK).');
+
+  await consultarEstadoInicial();
+
+  if (getAutoUnlock()) {
+    log('info', 'Destravando automaticamente (opção ligada nas Configurações)...');
+    try {
+      await send('+LOCK=0');
+      await expect(l => l.startsWith('+LOCK='), 'LOCK (destravando automaticamente)', 4000);
+      await confirmarLock('0');
+    } catch (e) {
+      log('erro', 'Não foi possível destravar automaticamente: ' + e.message);
+    }
+  }
+
+  setAppState('ready');
+  tentarManterTelaAcesa();
+}
+
+// Depois do CODE_OK, consulta o estado atual de cada função (sem travar se alguma não responder).
+async function consultarEstadoInicial() {
+  const consultas = [
+    { cmd: '+LOCK=?', match: l => l.startsWith('+LOCK=') },
+    { cmd: '+LUMA=M0L?', match: l => l.startsWith('+LUMA=') },
+    { cmd: '+DRIVMD=?', match: l => l.startsWith('+DRIVMD=') },
+    { cmd: '+CRZE=?', match: l => l.startsWith('+CRZE=') },
+    { cmd: '+GEARMODE=?', match: l => l.startsWith('+GEARMODE=') },
+  ];
+  for (const q of consultas) {
+    try {
+      await send(q.cmd);
+      await expect(q.match, `consulta ${q.cmd}`, 3000);
+    } catch (e) {
+      log('erro', `${q.cmd} não respondeu a tempo — seguindo mesmo assim.`);
+    }
+    await sleep(150);
+  }
+}
+
+/* =====================================================================
+   PARTE G — BOTÕES DE CONTROLE
+   ===================================================================== */
+
+const btnMainLock = document.getElementById('btn-main-lock');
+const btnLuma = document.getElementById('btn-luma');
+const btnDrivmd = document.getElementById('btn-drivmd');
+const btnCrze = document.getElementById('btn-crze');
+const btnGearmode = document.getElementById('btn-gearmode');
+const valorLuma = document.getElementById('valor-luma');
+const valorDrivmd = document.getElementById('valor-drivmd');
+const valorCrze = document.getElementById('valor-crze');
+const valorGearmode = document.getElementById('valor-gearmode');
+const lockConfirmEl = document.getElementById('lock-confirm');
+
+function horaAtual() {
+  const now = new Date();
+  return [now.getHours(), now.getMinutes(), now.getSeconds()].map(n => String(n).padStart(2, '0')).join(':');
+}
+
+function limparConfirmacaoLock() {
+  lockConfirmEl.textContent = '';
+  lockConfirmEl.style.color = '';
+}
+
+// Depois de mandar +LOCK=1 ou +LOCK=0, confirma com a bike (consultando +LOCK=? de
+// novo) que o estado real bate com o que a gente pediu. Confiar só no eco do comando
+// é fraco para um app de tranca: se o comando não pegar, o usuário sairia achando
+// que trancou sem ter trancado de verdade.
+async function confirmarLock(valorEsperado) {
+  try {
+    await sleep(300);
+    await send('+LOCK=?');
+    await expect(l => l.startsWith('+LOCK='), 'LOCK (confirmando estado real)', 4000);
+    // emitLine já atualizou estado.lock sozinho a partir da resposta acima.
+    if (estado.lock === valorEsperado) {
+      log('info', 'Confirmado pela bike: ' + (valorEsperado === '1' ? 'TRAVADA' : 'DESTRAVADA'));
+      lockConfirmEl.textContent = 'Confirmado pela bike às ' + horaAtual();
+      lockConfirmEl.style.color = '';
+      return true;
+    } else {
+      log('erro', 'ATENÇÃO: a bike NÃO confirmou o comando. Estado atual segundo a bike: ' + (estado.lock ?? 'desconhecido'));
+      lockConfirmEl.textContent = 'A bike não confirmou — verifique a trava fisicamente';
+      lockConfirmEl.style.color = 'var(--error)';
+      return false;
+    }
+  } catch (e) {
+    log('erro', 'Não foi possível confirmar o estado da trava: ' + e.message);
+    lockConfirmEl.textContent = 'A bike não confirmou — verifique a trava fisicamente';
+    lockConfirmEl.style.color = 'var(--error)';
+    return false;
+  }
+}
+
+function renderLock() {
+  if (estado.lock === '1') {
+    btnMainLock.textContent = 'DESTRAVAR';
+    btnMainLock.className = 'locked';
+  } else if (estado.lock === '0') {
+    btnMainLock.textContent = 'TRAVAR';
+    btnMainLock.className = 'unlocked';
+  } else {
+    // Estado ainda não confirmado pela bike — nunca afirme travado/destravado sem saber.
+    btnMainLock.textContent = 'Estado desconhecido — toque para consultar';
+    btnMainLock.className = 'desconhecido';
+  }
+}
+function renderLuma() {
+  const nomes = { '0': 'Apagado', '1': 'Baixo', '2': 'Alto' };
+  valorLuma.textContent = nomes[estado.luma] || '--';
+}
+function renderDrivmd() { valorDrivmd.textContent = estado.drivmd ?? '--'; }
+function renderCrze() { valorCrze.textContent = estado.crze === '1' ? 'Ligado' : (estado.crze === '0' ? 'Desligado' : '--'); }
+function renderGearmode() { valorGearmode.textContent = estado.gearmode ?? '--'; }
+
+// Desabilita o botão e mostra "enviando..." enquanto o comando está em voo.
+// IMPORTANTE: nunca escrever em botao.textContent — os botões da grade têm
+// spans filhos (rótulo + valor) e sobrescrever o textContent do botão inteiro
+// apaga esses spans para sempre (era o bug da correção 1). Por isso só
+// mexemos em botao.classList e no span .valor, e no final quem redesenha
+// o valor de verdade é a função de render passada por parâmetro.
+async function executarComando(botao, cmd, matchPrefix, rotulo, render) {
+  botao.disabled = true;
+  botao.classList.add('enviando');
+  const valorEl = botao.querySelector('.valor');
+  if (valorEl) valorEl.textContent = 'enviando...';
+  try {
+    await send(cmd);
+    await expect(l => l.startsWith(matchPrefix), rotulo, 4000);
+  } catch (e) {
+    log('erro', e.message);
+  } finally {
+    botao.disabled = false;
+    botao.classList.remove('enviando');
+    render();
+  }
+}
+
+btnMainLock.addEventListener('click', async () => {
+  // Se ainda não sabemos o estado real, só consultamos — nunca chutamos travar/destravar.
+  const consultando = estado.lock === null;
+  const novoValor = estado.lock === '1' ? '0' : '1';
+  const cmd = consultando ? '+LOCK=?' : ('+LOCK=' + novoValor);
+  const rotulo = consultando ? 'LOCK (consultando estado)' : 'LOCK (travar/destravar)';
+
+  limparConfirmacaoLock(); // informação velha não pode ficar na tela durante o novo comando
+  btnMainLock.disabled = true;
+  if (!consultando) btnMainLock.textContent = 'Enviando...';
+  try {
+    await send(cmd);
+    await expect(l => l.startsWith('+LOCK='), rotulo, 4000);
+    if (!consultando) {
+      // Não confia só no eco: reconsulta a bike para confirmar de verdade.
+      await confirmarLock(novoValor);
+    }
+  } catch (e) {
+    log('erro', e.message);
+  } finally {
+    btnMainLock.disabled = false;
+    // renderLock() sempre escreve um rótulo válido (travado/destravado/desconhecido),
+    // então não precisamos guardar/restaurar texto original aqui.
+    renderLock();
+  }
+});
+
+btnLuma.addEventListener('click', () => {
+  const atual = estado.luma || '0';
+  const proximo = String((Number(atual) + 1) % 3);
+  executarComando(btnLuma, '+LUMA=M0L' + proximo, '+LUMA=', 'LUMA (farol)', renderLuma);
+});
+btnDrivmd.addEventListener('click', () => {
+  const proximo = estado.drivmd === '1' ? '0' : '1';
+  executarComando(btnDrivmd, '+DRIVMD=' + proximo, '+DRIVMD=', 'DRIVMD (modo)', renderDrivmd);
+});
+btnCrze.addEventListener('click', () => {
+  const proximo = estado.crze === '1' ? '0' : '1';
+  executarComando(btnCrze, '+CRZE=' + proximo, '+CRZE=', 'CRZE (cruise)', renderCrze);
+});
+btnGearmode.addEventListener('click', () => {
+  const proximo = estado.gearmode === '1' ? '0' : '1';
+  executarComando(btnGearmode, '+GEARMODE=' + proximo, '+GEARMODE=', 'GEARMODE (marcha)', renderGearmode);
+});
+
+/* =====================================================================
+   PARTE G2 — MARCAR MOMENTO (casar linha crua com evento físico conhecido)
+   ===================================================================== */
+
+function marcarMomento(texto) {
+  if (!texto) return;
+  const limpo = texto.trim();
+  if (!limpo) return;
+  log('marca', limpo);
+}
+
+document.getElementById('btn-marcar-momento').addEventListener('click', () => {
+  const texto = window.prompt('O que está acontecendo agora? (ex: liguei o farol, comecei a pedalar, parei, bateria mostrando 3 barras)');
+  marcarMomento(texto);
+});
+document.getElementById('btn-marca-parado').addEventListener('click', () => marcarMomento('Parado'));
+document.getElementById('btn-marca-pedalando').addEventListener('click', () => marcarMomento('Pedalando'));
+document.getElementById('btn-marca-carregando').addEventListener('click', () => marcarMomento('Carregando'));
+document.getElementById('btn-marca-bateria-cheia').addEventListener('click', () => marcarMomento('Bateria cheia'));
+
+/* =====================================================================
+   PARTE G3 — ANOTAR LEITURA DO APP OFICIAL (pedra de Roseta da telemetria)
+   ===================================================================== */
+
+const leituraOverlay = document.getElementById('leitura-overlay');
+const leituraErroEl = document.getElementById('leitura-erro');
+const inputLeituraOdo = document.getElementById('input-leitura-odo');
+const inputLeituraBat = document.getElementById('input-leitura-bat');
+const inputLeituraViagem = document.getElementById('input-leitura-viagem');
+const inputLeituraVel = document.getElementById('input-leitura-vel');
+const inputLeituraObs = document.getElementById('input-leitura-obs');
+
+function abrirLeitura() {
+  // Os campos SEMPRE começam vazios: reaproveitar a leitura anterior é o
+  // jeito mais fácil de gravar um número velho sem perceber.
+  inputLeituraOdo.value = '';
+  inputLeituraBat.value = '';
+  inputLeituraViagem.value = '';
+  inputLeituraVel.value = '';
+  inputLeituraObs.value = '';
+  leituraErroEl.classList.add('hidden');
+  leituraErroEl.textContent = '';
+  leituraOverlay.classList.add('open');
+}
+function fecharLeitura() {
+  leituraOverlay.classList.remove('open');
+}
+
+// Aceita vírgula OU ponto como separador decimal (o teclado do iPhone em
+// pt-BR produz vírgula) e normaliza sempre para ponto antes de gravar.
+function normalizarNumeroDecimal(bruto) {
+  const s = (bruto || '').trim();
+  if (!s) return { vazio: true };
+  const normalizado = s.replace(',', '.');
+  if (!/^-?\d+(\.\d+)?$/.test(normalizado)) return { ok: false };
+  return { ok: true, valor: normalizado };
+}
+
+document.getElementById('btn-anotar-leitura-pronto').addEventListener('click', abrirLeitura);
+document.getElementById('btn-anotar-leitura-config').addEventListener('click', abrirLeitura);
+document.getElementById('btn-cancelar-leitura').addEventListener('click', fecharLeitura);
+leituraOverlay.addEventListener('click', (e) => { if (e.target === leituraOverlay) fecharLeitura(); });
+
+document.getElementById('btn-salvar-leitura').addEventListener('click', () => {
+  const campos = [
+    { label: 'ODO (km)', tag: 'ODO', raw: inputLeituraOdo.value },
+    { label: 'Bateria (%)', tag: 'BAT', raw: inputLeituraBat.value },
+    { label: 'Viagem (km)', tag: 'VIAGEM', raw: inputLeituraViagem.value },
+    { label: 'Velocidade (km/h)', tag: 'VEL', raw: inputLeituraVel.value },
+  ];
+
+  const partes = [];
+  for (const c of campos) {
+    const r = normalizarNumeroDecimal(c.raw);
+    if (r.vazio) continue;
+    if (!r.ok) {
+      leituraErroEl.textContent = `Valor inválido em "${c.label}": digite só números (ex: 65.6 ou 65,6).`;
+      leituraErroEl.classList.remove('hidden');
+      return;
+    }
+    partes.push(`${c.tag}=${r.valor}`);
+  }
+
+  const obs = inputLeituraObs.value.trim();
+
+  // Se TUDO estiver vazio, não grava nada — só fecha.
+  if (!partes.length && !obs) {
+    fecharLeitura();
+    return;
+  }
+
+  // OBS por último de propósito, porque pode conter espaços.
+  if (obs) partes.push('OBS=' + obs);
+
+  const texto = 'LEITURA-OFICIAL ' + partes.join(' ');
+  log('marca', texto);
+  log('info', 'Leitura do app oficial anotada.');
+  fecharLeitura();
+});
+
+/* =====================================================================
+   PARTE H — BOTÕES DE CONEXÃO
+   ===================================================================== */
+
+btnConnect.addEventListener('click', conectar);
+btnRetry.addEventListener('click', conectar);
+btnForgetDisconnected.addEventListener('click', () => esquecerDispositivo());
+btnForgetError.addEventListener('click', () => esquecerDispositivo());
+
+/* =====================================================================
+   PARTE I — SERVICE WORKER (PWA)
+   ===================================================================== */
+
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  try {
+    navigator.serviceWorker.register('./sw.js').then(() => {
+      log('info', 'Service worker registrado.');
+    }).catch((e) => {
+      log('info', 'Service worker não registrou: ' + e.message + ' (o app continua funcionando normalmente).');
+    });
+  } catch (e) {
+    log('info', 'Service worker não registrou: ' + e.message);
+  }
+} else {
+  log('info', 'Service worker não registrado (fora de HTTPS/localhost) — o app funciona normalmente, só sem cache offline.');
+}
+
+/* =====================================================================
+   PARTE J — AUTO-TESTE AO CARREGAR A PÁGINA
+   ===================================================================== */
+
+atualizarBannerAviso();
+setAppState('disconnected');
+carregarCaptura();
+atualizarBannerCaptura();
+atualizarIndicadorGravando();
+
+(function autoTeste() {
+  const resultado = selfTest();
+  if (resultado.ok) {
+    log('info', 'Auto-teste do hash: OK');
+  } else {
+    log('erro', 'Auto-teste do hash FALHOU — não conecte à bike. Veja detalhes nas configurações > Testar hash.');
+    console.error('Auto-teste do bikeHash falhou:', resultado.detalhes.filter(d => d.includes('FALHOU')));
+  }
+})();
+</script>
+</body>
+</html>
